@@ -1,245 +1,284 @@
-# 🚀 QoSBuddy  
-### AI-Driven Predictive Quality of Service Monitoring & Optimization System
+QoSBuddy
+AI-Driven Predictive Quality of Service Monitoring and Optimization System
 
-📅 **Project Duration:** 12 Weeks  
-📌 **Status:** In Preparation  
+Project Duration: 12 Weeks
+Status: In Preparation
 
-👥 **Team Members:**  
-- Mariem Gharbi  
-- Hadyle Zribi  
-- Donia Hali  
-- Mariam Ben Abdallah  
-- Omar Zallila  
-- Ahmed Abid  
+Team Members
 
----
+Mariem Gharbi
 
-## 📖 Overview
+Hadyle Zribi
 
-**QoSBuddy** is an AI-powered system designed to monitor, predict, and optimize **Network Quality of Service (QoS)** in real time.
+Donia Hali
 
-Modern networks support critical services such as VoIP, cloud applications, streaming, and real-time systems. Ensuring stable performance in terms of:
+Mariam Ben Abdallah
 
-- Latency  
-- Jitter  
-- Packet Loss  
-- Throughput  
-- Bandwidth Utilization  
+Omar Zallila
 
-is essential to maintain reliability and avoid SLA violations.
+Ahmed Abid
 
-QoSBuddy goes beyond traditional reactive monitoring by providing:
+1. Overview
 
-- 🔎 Real-time anomaly detection  
-- 🔮 Predictive analytics  
-- ⚙️ Intelligent optimization recommendations  
-- 📊 Interactive dashboards & automated AI reports  
+QoSBuddy is an AI-driven system designed to monitor, predict, and optimize Network Quality of Service (QoS) in real time.
 
----
+Modern communication networks support critical services such as VoIP, cloud applications, video streaming, and real-time systems. Maintaining stable performance in terms of:
 
-## 🎯 Project Objectives
+Latency
 
-### BO1 – Real-Time QoS Monitoring
-Detect performance degradation instantly using:
+Jitter
 
-- Statistical Thresholding (EWMA, Z-Score)  
-- Isolation Forest  
-- One-Class SVM  
-- Autoencoders  
-- Streaming Analytics (Kafka + Spark/Flink)
+Packet Loss
 
----
+Throughput
 
-### BO2 – Predictive Anomaly Detection
-Forecast congestion and SLA risks using:
+Bandwidth Utilization
 
-- LSTM / GRU  
-- Temporal Convolutional Networks (TCN)  
-- ARIMA / SARIMA  
-- Prophet  
-- Attention-based Time-Series Models  
+is essential to ensure reliability, user satisfaction, and compliance with Service Level Agreements (SLAs).
 
----
+Unlike traditional monitoring tools that focus primarily on reactive detection, QoSBuddy introduces predictive analytics and intelligent optimization capabilities to proactively prevent service degradation.
 
-### BO3 – Intelligent Optimization
-Recommend optimal resource allocation strategies via:
+The system provides:
 
-- Reinforcement Learning (Q-learning, DQN, PPO)  
-- Genetic Algorithms  
-- Multi-objective Optimization (QoS vs Cost)  
-- Linear / Integer Programming  
+Real-time anomaly detection
 
----
+Predictive QoS analytics
 
-### BO4 – Automated Root Cause Analysis
-Generate explainable AI-powered reports using:
+Intelligent resource optimization recommendations
 
-- Bayesian Networks  
-- Decision Trees  
-- SHAP / LIME  
-- Knowledge Graphs  
-- Generative AI (LLMs)
+Interactive dashboards and automated AI-generated reports
 
----
+2. Project Objectives
+BO1 – QoS Monitoring
 
-## 🏗 System Architecture
+Detect performance degradation in real time using:
 
-QoSBuddy follows an **Agent-Based Architecture**:
+Statistical Thresholding (EWMA, Z-Score)
 
-| Agent | Responsibility |
-|--------|----------------|
-| Monitoring Agent | Collects real-time QoS metrics |
-| Analysis Agent | Performs anomaly detection |
-| Prediction Agent | Forecasts QoS degradation |
-| Reporting Agent | Generates AI-based reports |
-| Coordinator Agent | Manages escalation & optimization |
+Isolation Forest
 
-Agents can be deployed centrally or across distributed network nodes.
+One-Class SVM
 
----
+Autoencoders
 
-## 👥 Target Users
+Streaming Analytics (Kafka with Spark or Flink)
 
-- 📡 Telecommunication Companies  
-- 🌐 Internet Service Providers (ISPs)  
-- 🏢 Large Enterprises & Corporate Networks  
-- ☁️ Data Centers & Cloud Providers  
-- 🎓 Academic & Research Institutions  
+BO2 – QoS Detection & Prediction
 
----
+Forecast congestion risks and potential SLA violations using:
 
-## 🌍 Sustainable Development Impact
+LSTM / GRU
 
-QoSBuddy aligns with the following Sustainable Development Goals (SDGs):
+Temporal Convolutional Networks (TCN)
 
-- **SDG 9** – Industry, Innovation & Infrastructure  
-- **SDG 11** – Sustainable Cities & Communities  
-- **SDG 12** – Responsible Consumption  
-- **SDG 8** – Decent Work & Economic Growth  
+ARIMA / SARIMA
 
-By optimizing bandwidth and reducing service disruptions, QoSBuddy contributes to more sustainable and resilient digital infrastructure.
+Prophet
 
----
+Attention-based Time-Series Models
 
-## 🧠 Methodology
+BO3 – Autonomous QoS Optimization
 
-We adopt the **Team Data Science Process (TDSP)**:
+Recommend optimal resource allocation strategies through:
 
-1. Business Understanding  
-2. Data Acquisition & Exploration  
-3. Modeling  
-4. Deployment  
-5. Continuous Improvement  
+Reinforcement Learning (Q-Learning, DQN, PPO)
 
----
+Genetic Algorithms
 
-## ⚙️ Core Features
+Multi-objective Optimization (QoS versus Cost)
 
-### ✅ Real-Time Monitoring
-- Latency, jitter, packet loss, throughput tracking  
-- Application-level performance monitoring  
+Linear and Integer Programming
 
-### ✅ Predictive Analytics
-- Congestion forecasting  
-- SLA violation prediction  
+BO4 – QoS Reporting & Insights
 
-### ✅ Automated Optimization
-- Dynamic routing recommendations  
-- Bandwidth allocation strategies  
+Generate explainable AI-powered analytical reports using:
 
-### ✅ Alerting & Notifications
-- Threshold-based alerts  
-- Email / dashboard notifications  
+Bayesian Networks
 
-### ✅ Visualization & Reporting
-- Heatmaps  
-- Predictive graphs  
-- Automated AI-generated reports  
+Decision Trees
 
-### ✅ Multi-Environment Support
-- Cloud  
-- On-Premises  
-- IoT Networks  
+SHAP / LIME
 
----
+Knowledge Graphs
 
-## 🔒 Non-Functional Requirements
+Generative AI Models (LLMs)
 
-- High Scalability  
-- Low Processing Latency  
-- 24/7 Availability  
-- Secure Data Handling  
-- Modular & Maintainable Architecture  
+3. System Architecture
 
----
+QoSBuddy follows an Agent-Based Architecture composed of specialized components:
 
-## 📊 Differentiation
+Agent	Responsibility
+Monitoring Agent	Collects real-time QoS metrics
+Analysis Agent	Performs anomaly detection
+Prediction Agent	Forecasts QoS degradation
+Reporting Agent	Generates AI-based analytical reports
+Coordinator Agent	Manages escalation and optimization workflows
 
-Unlike traditional monitoring tools, QoSBuddy emphasizes:
+Agents can be deployed centrally or distributed across network nodes depending on infrastructure requirements.
 
-- Predictive (not only reactive) monitoring  
-- AI-driven optimization  
-- Root Cause Analysis automation  
-- Cross-environment intelligence  
-- Sustainability-aware optimization  
+4. Target Users
 
----
+Telecommunication Companies
 
-## 📁 Project Scope
+Internet Service Providers (ISPs)
 
-This project focuses on:
+Large Enterprises and Corporate Networks
 
-- Software-based monitoring & analytics  
-- AI-driven decision support  
-- Simulation / SDN-based optimization  
+Data Centers and Cloud Providers
 
-⚠️ Physical hardware deployment is outside the scope of this prototype.
+Academic and Research Institutions
 
----
+5. Sustainable Development Impact
 
-## 🎨 UI Prototype
+QoSBuddy contributes to the following Sustainable Development Goals (SDGs):
 
-Figma Design:  
+SDG 9 – Industry, Innovation and Infrastructure
+
+SDG 11 – Sustainable Cities and Communities
+
+SDG 12 – Responsible Consumption and Production
+
+SDG 8 – Decent Work and Economic Growth
+
+By optimizing bandwidth utilization and reducing service disruptions, the system promotes more sustainable and resilient digital infrastructures.
+
+6. Methodology
+
+The project follows the Team Data Science Process (TDSP):
+
+Business Understanding
+
+Data Acquisition and Exploration
+
+Modeling
+
+Deployment
+
+Continuous Improvement
+
+7. Core Features
+Real-Time Monitoring
+
+Latency, jitter, packet loss, and throughput tracking
+
+Application-level performance monitoring
+
+Predictive Analytics
+
+Congestion forecasting
+
+SLA violation prediction
+
+Automated Optimization
+
+Dynamic routing recommendations
+
+Bandwidth allocation strategies
+
+Alerting and Notifications
+
+Threshold-based alerts
+
+Email and dashboard notifications
+
+Visualization and Reporting
+
+Heatmaps
+
+Predictive performance graphs
+
+Automated AI-generated analytical reports
+
+Multi-Environment Support
+
+Cloud environments
+
+On-premises infrastructures
+
+IoT-based networks
+
+8. Non-Functional Requirements
+
+High scalability
+
+Low processing latency
+
+24/7 availability
+
+Secure data handling
+
+Modular and maintainable architecture
+
+9. Differentiation
+
+QoSBuddy distinguishes itself from traditional monitoring tools by emphasizing:
+
+Predictive rather than purely reactive monitoring
+
+AI-driven optimization mechanisms
+
+Automated root cause analysis
+
+Cross-environment intelligence
+
+Sustainability-aware decision support
+
+10. Project Scope
+
+This prototype focuses on:
+
+Software-based QoS monitoring and analytics
+
+AI-driven decision support systems
+
+Simulation and SDN-based optimization
+
+Physical hardware deployment is outside the scope of this academic prototype.
+
+11. UI Prototype
+
+Figma Design:
 https://www.figma.com/make/xUVuGo2nDWkZcw2MV2WSfV/QoSBuddy-System-Pages
 
----
+12. Planned Technology Stack
 
-## 🛠 Planned Tech Stack
+Python
 
-- Python  
-- Kafka  
-- Spark / Flink  
-- Scikit-learn  
-- TensorFlow / PyTorch  
-- Streamlit / Dash  
-- Docker  
+Kafka
 
----
+Spark or Flink
 
-## 📈 Dataset
+Scikit-learn
+
+TensorFlow or PyTorch
+
+Streamlit or Dash
+
+Docker
+
+13. Dataset
 
 Primary Benchmark Dataset:
-- UNSW-NB15  
 
----
+UNSW-NB15
 
-## 🚀 Future Vision
+14. Future Vision
 
-- Industrial deployment readiness  
-- Edge AI agents  
-- Energy-aware optimization  
-- SDN controller integration  
-- SaaS platform version  
+Industrial deployment readiness
 
----
+Edge AI agents
 
-## 📜 License
+Energy-aware optimization
 
-Educational & Research Prototype  
+SDN controller integration
 
----
+SaaS-based platform version
 
-## 🤝 Contributions
+15. License
 
-This project is developed as part of an academic initiative.  
-Research collaborations and improvement suggestions are welcome.
+Educational and Research Prototype
+
+16. Contributions
+
+This project is developed as part of an academic initiative.
+Research collaborations and improvement proposals are welcome.
