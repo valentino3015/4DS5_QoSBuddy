@@ -365,7 +365,7 @@
     <!-- Header -->
     <div class="header">
         <div class="logo-section">
-            <div class="logo">QB</div>
+            <div class="logo"><img src="logo.png" alt="QoSBuddy Logo"></div>
             <div class="title-group">
                 <h1>QoSBuddy</h1>
                 <p>Monitoring Agent</p>
@@ -464,7 +464,6 @@
                             <th>Down (KB/s)</th>
                             <th>Up (KB/s)</th>
                             <th>Util (%)</th>
-                            <th>Resp Time (ms)</th>
                             <th>Error (%)</th>
                             <th>Availability (%)</th>
                         </tr>
@@ -479,9 +478,8 @@
                             <td>{{ row[7] }}</td>
                             <td>{{ row[8] }}</td>
                             <td>{{ row[9] }}</td>
-                            <td>{{ row[11] }}</td>
+                            <td class="metric-good">{{ row[11] }}</td>
                             <td class="metric-good">{{ row[12] }}</td>
-                            <td class="metric-good">{{ row[13] }}</td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -502,7 +500,6 @@
             throughputDown: initialData.throughputDown || [],
             throughputUp: initialData.throughputUp || [],
             util: initialData.util || [],
-            respTime: initialData.respTime || [],
             error: initialData.error || [],
             availability: initialData.availability || []
         };
@@ -636,7 +633,7 @@
                 datasets: [
                     {
                         label: 'Response Time (ms)',
-                        data: liveData.respTime.slice(-10),
+                        data: liveData.rtt.slice(-10),
                         backgroundColor: chartColors.primary,
                         borderColor: chartColors.secondary,
                         borderWidth: 1,
@@ -728,7 +725,6 @@
                 liveData.throughputDown = latest.throughputDown || [];
                 liveData.throughputUp = latest.throughputUp || [];
                 liveData.util = latest.util || [];
-                liveData.respTime = latest.respTime || [];
                 liveData.error = latest.error || [];
                 liveData.availability = latest.availability || [];
 
@@ -744,7 +740,6 @@
                 metricsChart.update();
 
                 perfChart.data.labels = liveData.timestamps.slice(-10);
-                perfChart.data.datasets[0].data = liveData.respTime.slice(-10);
                 perfChart.update();
 
                 errorChart.data.labels = liveData.timestamps;

@@ -48,15 +48,12 @@ def collect_metrics(destination="8.8.8.8"):
     # ---- Retransmission Rate (approximation) ----
     retransmission_rate = packet_loss  # simplification académique
 
-    # ---- Application Metrics (short timeout for faster collection) ----
-    start = time.time()
+    # ---- Application Metrics (availability only; response_time = ping RTT for consistency) ----
     try:
         response = requests.get("https://google.com", timeout=2)
-        response_time = (time.time() - start) * 1000
         http_error_rate = 0 if response.status_code == 200 else 100
         availability = 100
     except Exception:
-        response_time = 0
         http_error_rate = 100
         availability = 0
 
@@ -72,7 +69,6 @@ def collect_metrics(destination="8.8.8.8"):
         "throughput_up": throughput_up,
         "bandwidth_utilization": bandwidth_utilization,
         "retransmission_rate": retransmission_rate,
-        "response_time": response_time,
         "http_error_rate": http_error_rate,
         "availability": availability
     }
