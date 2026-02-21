@@ -29,8 +29,8 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
     Convert raw DB rows to chart series in chronological order.
 
     Expected schema (by index): (id, timestamp, source_ip, destination_ip, avg_rtt, p95_rtt,
-    jitter, packet_loss, throughput, bandwidth_utilization, retransmission_rate, response_time,
-    http_error_rate, availability)
+    jitter, packet_loss, throughput_down, throughput_up, bandwidth_utilization, retransmission_rate,
+    response_time, http_error_rate, availability)
     """
 
     # rows are fetched DESC; charts should render left->right old->new
@@ -40,7 +40,8 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
     rtt: List[float] = []
     jitter: List[float] = []
     loss: List[float] = []
-    throughput: List[float] = []
+    throughput_down: List[float] = []
+    throughput_up: List[float] = []
     util: List[float] = []
     resp_time: List[float] = []
     error: List[float] = []
@@ -48,21 +49,23 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
 
     for row in rows_chrono:
         timestamps.append(_time_label(row[0]))
-        rtt.append(float(row[4] or 0))
-        jitter.append(float(row[6] or 0))
-        loss.append(float(row[5] or 0))
-        throughput.append(float(row[8]) or 0)
-        util.append(float(row[9] or 0))
-        resp_time.append(float(row[10] or 0))
-        error.append(float(row[11] or 0))
-        availability.append(float(row[12] or 0))
+        rtt.append(round(float(row[3] or 0), 2))
+        jitter.append(round(float(row[5] or 0), 2))
+        loss.append(round(float(row[6] or 0), 2))
+        throughput_down.append(round(float(row[7] or 0), 2))
+        throughput_up.append(round(float(row[8] or 0), 2))
+        util.append(round(float(row[9] or 0), 2))
+        resp_time.append(round(float(row[11] or 0), 2))
+        error.append(round(float(row[12] or 0), 2))
+        availability.append(round(float(row[13] or 0), 2))
 
     return {
         "timestamps": timestamps,
         "rtt": rtt,
         "jitter": jitter,
         "loss": loss,
-        "throughput": throughput,
+        "throughputDown": throughput_down,
+        "throughputUp": throughput_up,
         "util": util,
         "respTime": resp_time,
         "error": error,

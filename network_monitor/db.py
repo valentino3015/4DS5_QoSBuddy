@@ -1,6 +1,10 @@
 """
 Shared DB helpers/constants used by both the agent and the Flask app.
 Keeps INSERT column order consistent across the project.
+
+If upgrading from a schema that had a single 'throughput' column, run:
+  ALTER TABLE network_metrics ADD COLUMN throughput_down DOUBLE, ADD COLUMN throughput_up DOUBLE;
+  ALTER TABLE network_metrics DROP COLUMN throughput;
 """
 
 from __future__ import annotations
@@ -16,7 +20,8 @@ METRICS_COLUMNS: Tuple[str, ...] = (
     "p95_rtt",
     "jitter",
     "packet_loss",
-    "throughput",
+    "throughput_down",
+    "throughput_up",
     "bandwidth_utilization",
     "retransmission_rate",
     "response_time",
@@ -34,8 +39,17 @@ INSERT_METRICS_SQL = (
 def metrics_values(metrics: Mapping[str, Any]) -> Sequence[Any]:
     """
     Return metric values in the same order as METRICS_COLUMNS.
+    Numeric values are formatted to 2 decimal places (e.g. "12.12") for VARCHAR storage.
     Raises KeyError if a required key is missing (useful for catching schema drift).
     """
-
+    result = []
+    for col in METRICS_COLUMNS:
+        value = metrics[col]
+        if value is not None and isinstance(value, (int, float)):
+            result.append(f"{float(value):.2f}")
+        else:
+            result.append(value)
+    return tuple(result)
     return tuple(metrics[col] for col in METRICS_COLUMNS)
+
 

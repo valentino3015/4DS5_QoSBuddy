@@ -33,16 +33,17 @@ def collect_metrics(destination="8.8.8.8"):
         jitter = 0
     packet_loss = (10 - len(rtts)) / 10 * 100
 
-    # ---- Throughput ----
+    # ---- Throughput (down = recv, up = sent) ----
     net1 = psutil.net_io_counters()
     time.sleep(1)
     net2 = psutil.net_io_counters()
 
-    throughput = (net2.bytes_sent - net1.bytes_sent) / 1024  # KB/s
+    throughput_down = (net2.bytes_recv - net1.bytes_recv) / 1024   # KB/s
+    throughput_up = (net2.bytes_sent - net1.bytes_sent) / 1024     # KB/s
 
     # ---- Bandwidth Utilization (ex: 100 Mbps assumed) ----
-    max_bandwidth = 100 * 1024  # 100 Mbps in KB/s
-    bandwidth_utilization = (throughput / max_bandwidth) * 100
+    max_bandwidth = 20 * 1024  # 100 Mbps in KB/s
+    bandwidth_utilization = ((throughput_down + throughput_up) / max_bandwidth) * 100
 
     # ---- Retransmission Rate (approximation) ----
     retransmission_rate = packet_loss  # simplification académique
@@ -60,14 +61,15 @@ def collect_metrics(destination="8.8.8.8"):
         availability = 0
 
     return {
-        "timestamp": datetime.now(),
+        "timestamp": datetime.now().replace(microsecond=0),
         "source_ip": source_ip,
         "destination_ip": destination,
         "avg_rtt": avg_rtt,
         "p95_rtt": p95_rtt,
         "jitter": jitter,
         "packet_loss": packet_loss,
-        "throughput": throughput,
+        "throughput_down": throughput_down,
+        "throughput_up": throughput_up,
         "bandwidth_utilization": bandwidth_utilization,
         "retransmission_rate": retransmission_rate,
         "response_time": response_time,

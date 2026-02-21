@@ -404,10 +404,17 @@
         </div>
 
         <div class="kpi-card">
-            <div class="kpi-label">Throughput</div>
-            <div class="kpi-value" id="throughput-value">0</div>
-            <div class="kpi-unit">Mbps</div>
-            <div class="kpi-change" id="throughput-change">↑ 5.1% increase</div>
+            <div class="kpi-label">Throughput (Down)</div>
+            <div class="kpi-value" id="throughput-down-value">0</div>
+            <div class="kpi-unit">KB/s</div>
+            <div class="kpi-change" id="throughput-down-change">—</div>
+        </div>
+
+        <div class="kpi-card">
+            <div class="kpi-label">Throughput (Up)</div>
+            <div class="kpi-value" id="throughput-up-value">0</div>
+            <div class="kpi-unit">KB/s</div>
+            <div class="kpi-change" id="throughput-up-change">—</div>
         </div>
     </div>
 
@@ -454,7 +461,8 @@
                             <th>RTT (ms)</th>
                             <th>Jitter (ms)</th>
                             <th>Loss (%)</th>
-                            <th>Throughput (Mbps)</th>
+                            <th>Down (KB/s)</th>
+                            <th>Up (KB/s)</th>
                             <th>Util (%)</th>
                             <th>Resp Time (ms)</th>
                             <th>Error (%)</th>
@@ -464,10 +472,11 @@
                     <tbody id="metricsTable">
                         {% for row in data %}
                         <tr>
-                            <td>{{ row[1] }}</td>
-                            <td class="metric-good">{{ row[4] }}</td>
-                            <td>{{ row[6] }}</td>
-                            <td class="metric-good">{{ row[7] }}</td>
+                            <td>{{ row[0] }}</td>
+                            <td class="metric-good">{{ row[3] }}</td>
+                            <td>{{ row[5] }}</td>
+                            <td class="metric-good">{{ row[6] }}</td>
+                            <td>{{ row[7] }}</td>
                             <td>{{ row[8] }}</td>
                             <td>{{ row[9] }}</td>
                             <td>{{ row[11] }}</td>
@@ -490,7 +499,8 @@
             rtt: initialData.rtt || [],
             jitter: initialData.jitter || [],
             loss: initialData.loss || [],
-            throughput: initialData.throughput || [],
+            throughputDown: initialData.throughputDown || [],
+            throughputUp: initialData.throughputUp || [],
             util: initialData.util || [],
             respTime: initialData.respTime || [],
             error: initialData.error || [],
@@ -520,11 +530,11 @@
                 }
             },
             scales: {
-                x: { 
+                x: {
                     grid: { color: chartColors.grid, drawBorder: false },
                     ticks: { color: chartColors.text, font: { size: 11 } }
                 },
-                y: { 
+                y: {
                     grid: { color: chartColors.grid, drawBorder: false },
                     ticks: { color: chartColors.text, font: { size: 11 } }
                 }
@@ -579,8 +589,8 @@
                 labels: liveData.timestamps,
                 datasets: [
                     {
-                        label: 'Throughput (Mbps)',
-                        data: liveData.throughput,
+                        label: 'Throughput Down (KB/s)',
+                        data: liveData.throughputDown,
                         borderColor: chartColors.success,
                         backgroundColor: 'rgba(16, 185, 129, 0.1)',
                         borderWidth: 2,
@@ -590,15 +600,27 @@
                         pointBackgroundColor: chartColors.success
                     },
                     {
+                        label: 'Throughput Up (KB/s)',
+                        data: liveData.throughputUp,
+                        borderColor: chartColors.accent,
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 3,
+                        pointBackgroundColor: chartColors.accent
+                    },
+                    {
                         label: 'Utilization (%)',
                         data: liveData.util,
                         borderColor: chartColors.warning,
                         backgroundColor: 'rgba(245, 158, 11, 0.1)',
                         borderWidth: 2,
-                        fill: true,
+                        fill: false,
                         tension: 0.4,
                         pointRadius: 3,
-                        pointBackgroundColor: chartColors.warning
+                        pointBackgroundColor: chartColors.warning,
+                        borderDash: [5, 5]
                     }
                 ]
             },
@@ -666,19 +688,22 @@
                 document.getElementById('rtt-value').textContent = '0';
                 document.getElementById('loss-value').textContent = '0';
                 document.getElementById('avail-value').textContent = '0';
-                document.getElementById('throughput-value').textContent = '0';
+                document.getElementById('throughput-down-value').textContent = '0';
+                document.getElementById('throughput-up-value').textContent = '0';
                 return;
             }
 
             const avgRTT = (liveData.rtt.reduce((a, b) => a + b, 0) / n).toFixed(1);
             const lastLoss = (liveData.loss[n - 1] ?? 0).toFixed(2);
             const lastAvail = (liveData.availability[n - 1] ?? 0).toFixed(2);
-            const lastThroughput = (liveData.throughput[n - 1] ?? 0).toFixed(2);
+            const lastDown = (liveData.throughputDown[n - 1] ?? 0).toFixed(1);
+            const lastUp = (liveData.throughputUp[n - 1] ?? 0).toFixed(1);
 
             document.getElementById('rtt-value').textContent = avgRTT;
             document.getElementById('loss-value').textContent = lastLoss;
             document.getElementById('avail-value').textContent = lastAvail;
-            document.getElementById('throughput-value').textContent = lastThroughput;
+            document.getElementById('throughput-down-value').textContent = lastDown;
+            document.getElementById('throughput-up-value').textContent = lastUp;
 
             // Optional: simple "change" indicator based on previous point
             if (n >= 2) {
@@ -700,7 +725,8 @@
                 liveData.rtt = latest.rtt || [];
                 liveData.jitter = latest.jitter || [];
                 liveData.loss = latest.loss || [];
-                liveData.throughput = latest.throughput || [];
+                liveData.throughputDown = latest.throughputDown || [];
+                liveData.throughputUp = latest.throughputUp || [];
                 liveData.util = latest.util || [];
                 liveData.respTime = latest.respTime || [];
                 liveData.error = latest.error || [];
@@ -712,8 +738,9 @@
                 rttChart.update();
 
                 metricsChart.data.labels = liveData.timestamps;
-                metricsChart.data.datasets[0].data = liveData.throughput;
-                metricsChart.data.datasets[1].data = liveData.util;
+                metricsChart.data.datasets[0].data = liveData.throughputDown;
+                metricsChart.data.datasets[1].data = liveData.throughputUp;
+                metricsChart.data.datasets[2].data = liveData.util;
                 metricsChart.update();
 
                 perfChart.data.labels = liveData.timestamps.slice(-10);
