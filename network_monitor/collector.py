@@ -10,19 +10,19 @@ def collect_metrics(destination="8.8.8.8"):
     source_ip = socket.gethostbyname(socket.gethostname())
     rtts = []
 
-    # ---- RTT + Jitter + Packet Loss ----
-    for _ in range(10):
+    # ---- RTT + Jitter + Packet Loss (fast: 5 pings, 0.2s apart) ----
+    num_pings = 5
+    for _ in range(num_pings):
         rtt = ping(destination)
         if rtt is not None and rtt is not False:
             rtts.append(rtt * 1000)
-        time.sleep(0.5)
+        time.sleep(0.2)
 
     if not rtts:
         return None
 
     rtts_sorted = sorted(rtts)
     avg_rtt = sum(rtts) / len(rtts)
-    # nearest-rank percentile (good enough for small N=10)
     p95_index = max(0, min(len(rtts_sorted) - 1, int(round(0.95 * (len(rtts_sorted) - 1)))))
     p95_rtt = rtts_sorted[p95_index]
 
@@ -31,15 +31,15 @@ def collect_metrics(destination="8.8.8.8"):
         jitter = sum(diffs) / len(diffs)
     else:
         jitter = 0
-    packet_loss = (10 - len(rtts)) / 10 * 100
+    packet_loss = (num_pings - len(rtts)) / num_pings * 100
 
-    # ---- Throughput (down = recv, up = sent) ----
+    # ---- Throughput (down = recv, up = sent), 0.5s sample ----
     net1 = psutil.net_io_counters()
-    time.sleep(1)
+    time.sleep(0.5)
     net2 = psutil.net_io_counters()
-
-    throughput_down = (net2.bytes_recv - net1.bytes_recv) / 1024   # KB/s
-    throughput_up = (net2.bytes_sent - net1.bytes_sent) / 1024     # KB/s
+    # Scale to KB/s (sample was 0.5s, so multiply by 2)
+    throughput_down = (net2.bytes_recv - net1.bytes_recv) / 1024 * 2   # KB/s
+    throughput_up = (net2.bytes_sent - net1.bytes_sent) / 1024 * 2     # KB/s
 
     # ---- Bandwidth Utilization (ex: 100 Mbps assumed) ----
     max_bandwidth = 20 * 1024  # 100 Mbps in KB/s
@@ -48,10 +48,10 @@ def collect_metrics(destination="8.8.8.8"):
     # ---- Retransmission Rate (approximation) ----
     retransmission_rate = packet_loss  # simplification académique
 
-    # ---- Application Metrics ----
+    # ---- Application Metrics (short timeout for faster collection) ----
     start = time.time()
     try:
-        response = requests.get("https://google.com", timeout=5)
+        response = requests.get("https://google.com", timeout=2)
         response_time = (time.time() - start) * 1000
         http_error_rate = 0 if response.status_code == 200 else 100
         availability = 100
