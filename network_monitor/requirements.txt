@@ -1,0 +1,8 @@
+Flask
+flask-mysqldb
+mysqlclient
+psutil
+speedtest-cli
+ping3
+numpy
+pymysql
