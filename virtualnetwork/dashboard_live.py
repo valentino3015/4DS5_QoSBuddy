@@ -33,6 +33,14 @@ def safe_float(v, default=0.0):
     try: return float(v or default)
     except: return default
 
+def percentile(values, p):
+    if not values:
+        return 0.0
+    s = sorted(values)
+    idx = int(round((len(s) - 1) * p))
+    idx = max(0, min(idx, len(s) - 1))
+    return s[idx]
+
 def build_chart_data(rows):
     if not rows:
         return {"total_flows": 0, "total_windows": 0}
@@ -75,7 +83,7 @@ def build_chart_data(rows):
         avg_rtt_list.append(avg_rtt)
 
         # p95 rtt — approximated from all 3 targets
-        p95 = round(sorted(rtts)[int(len(rtts)*0.95)] if rtts else 0, 2)
+        p95 = round(percentile(rtts, 0.95), 2)
         p95_rtt_list.append(p95)
 
         jit = safe_float(first.get("ping_google_jitter_ms"))
