@@ -743,6 +743,7 @@
                 metricsChart.update();
 
                 perfChart.data.labels = liveData.timestamps.slice(-10);
+                perfChart.data.datasets[0].data = liveData.rtt.slice(-10);
                 perfChart.update();
 
                 errorChart.data.labels = liveData.timestamps;
