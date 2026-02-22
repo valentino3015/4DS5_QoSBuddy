@@ -388,6 +388,7 @@
             <div class="kpi-unit">ms</div>
             <div class="kpi-change" id="rtt-change">↓ 2.3% from last check</div>
         </div>
+        
 
         <div class="kpi-card">
             <div class="kpi-label">Packet Loss</div>
@@ -417,6 +418,25 @@
             <div class="kpi-change" id="throughput-up-change">—</div>
         </div>
     </div>
+
+        <div class="table-card">
+        <div class="table-header">Currently Active Connections</div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>IP / Hostname</th>
+                        <th>Port</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody id="activeConnectionsTable">
+                    <!-- Will be populated dynamically -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
 
     <!-- Charts -->
     <div class="charts-section">
@@ -763,6 +783,40 @@
 
         // Initialize KPI values
         updateKPIs();
+
+    
+
+
+
+        async function refreshActiveConnections() {
+    try {
+        const res = await fetch('/api/active-connections', { cache: 'no-store' });
+        if (!res.ok) return;
+        const connections = await res.json(); // [{ip: "...", port: 443, status: "ESTABLISHED"}, ...]
+
+        const tbody = document.getElementById('activeConnectionsTable');
+        tbody.innerHTML = '';
+
+        connections.forEach(conn => {
+            const tr = document.createElement('tr');
+            const ipTd = document.createElement('td');
+            ipTd.textContent = conn.hostname || conn.ip;
+            const portTd = document.createElement('td');
+            portTd.textContent = conn.port;
+            const statusTd = document.createElement('td');
+            statusTd.textContent = conn.status;
+
+            tr.append(ipTd, portTd, statusTd);
+            tbody.appendChild(tr);
+        });
+    } catch (e) {
+        console.warn('Could not refresh active connections:', e);
+    }
+}
+
+// Refresh every 10 seconds
+setInterval(refreshActiveConnections, 10000);
+refreshActiveConnections(); // initial load
     </script>
 </body>
 </html>
