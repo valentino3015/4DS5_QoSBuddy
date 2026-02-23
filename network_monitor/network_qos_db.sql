@@ -56,3 +56,18 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+-- BO1 Raw Metrics Table
+CREATE TABLE IF NOT EXISTS qos_metrics_raw (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    timestamp VARCHAR(32) NOT NULL,
+    window_id INT NOT NULL,
+    avg_rtt_ms FLOAT NULL,
+    jitter_ms FLOAT NULL,
+    packet_loss_pct FLOAT NULL,
+    throughput_up_mbps FLOAT NULL,
+    throughput_down_mbps FLOAT NULL,
+    retransmission_rate_pct FLOAT NULL,
+    dns_time_ms FLOAT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
