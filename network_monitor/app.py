@@ -99,6 +99,53 @@ def api_metrics():
 
     return jsonify(_rows_to_chart_data(rows))
 
+@app.post("/api/metrics/raw")
+def ingest_metrics_raw():
+    """
+    Ingest a single aggregated QoS window from an agent (e.g., Mariam capture_agent).
+    Expects JSON payload with at least: timestamp, window_id.
+    Stores into qos_metrics_raw table.
+    """
+    data = request.get_json(silent=True) or {}
+
+    ts = data.get("timestamp")
+    window_id = data.get("window_id")
+
+    if not ts or window_id is None:
+        return jsonify({"status": "error", "message": "timestamp and window_id are required"}), 400
+
+    # Metrics (all optional)
+    avg_rtt_ms = data.get("avg_rtt_ms")
+    jitter_ms = data.get("jitter_ms")
+    packet_loss_pct = data.get("packet_loss_pct")
+    throughput_up_mbps = data.get("throughput_up_mbps")
+    throughput_down_mbps = data.get("throughput_down_mbps")
+    retransmission_rate_pct = data.get("retransmission_rate_pct")
+    dns_time_ms = data.get("dns_time_ms")
+
+    cur = mysql.connection.cursor()
+    try:
+        cur.execute(
+            """
+            INSERT INTO qos_metrics_raw
+            (timestamp, window_id, avg_rtt_ms, jitter_ms, packet_loss_pct,
+             throughput_up_mbps, throughput_down_mbps, retransmission_rate_pct, dns_time_ms)
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+            """,
+            (
+                ts,
+                int(window_id),
+                avg_rtt_ms, jitter_ms, packet_loss_pct,
+                throughput_up_mbps, throughput_down_mbps,
+                retransmission_rate_pct, dns_time_ms,
+            ),
+        )
+        mysql.connection.commit()
+    finally:
+        cur.close()
+
+    return jsonify({"status": "ok"})
+
 @app.route("/collect")
 def collect():
     metrics = collect_metrics()

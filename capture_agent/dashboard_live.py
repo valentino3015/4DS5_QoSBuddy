@@ -33,6 +33,14 @@ def safe_float(v, default=0.0):
     try: return float(v or default)
     except: return default
 
+def percentile(values, p):
+    if not values:
+        return 0.0
+    s = sorted(values)
+    idx = int(round((len(s) - 1) * p))
+    idx = max(0, min(idx, len(s) - 1))
+    return s[idx]
+
 def build_chart_data(rows):
     if not rows:
         return {"total_flows": 0, "total_windows": 0}
@@ -75,7 +83,7 @@ def build_chart_data(rows):
         avg_rtt_list.append(avg_rtt)
 
         # p95 rtt — approximated from all 3 targets
-        p95 = round(sorted(rtts)[int(len(rtts)*0.95)] if rtts else 0, 2)
+        p95 = round(percentile(rtts, 0.95), 2)
         p95_rtt_list.append(p95)
 
         jit = safe_float(first.get("ping_google_jitter_ms"))
@@ -147,8 +155,15 @@ def build_chart_data(rows):
 
     # ── latest window snapshot
     latest = by_window[sorted_wids[-1]][0] if sorted_wids else {}
-
+    alerts = []
+    if avg_rtt_g > 120:
+        alerts.append(f"High RTT: {avg_rtt_g} ms")
+    if avg_loss > 2:
+        alerts.append(f"Packet loss: {avg_loss} %")
+    if avg_jitter > 20:
+        alerts.append(f"High jitter: {avg_jitter} ms")
     return {
+         "alerts": alerts,
         "wids": wids,
         "avg_rtt":   avg_rtt_list,
         "p95_rtt":   p95_rtt_list,
@@ -232,6 +247,7 @@ HTML_PAGE = r"""<!DOCTYPE html>
   <div id="waiting" style="display:none">⏳ Waiting for data... Make sure capture_agent.py is running.</div>
   <div id="dash">
     <div class="kpi-row" id="kpis"></div>
+    <div id="alerts" style="margin:10px 0;"></div>
     <div class="row">
       <div class="card" style="flex:2"><div class="ctitle">RTT — avg &amp; p95 (ms)</div><div id="c-rtt"></div></div>
       <div class="card" style="flex:1"><div class="ctitle">Packet Loss %</div><div id="c-loss"></div></div>
@@ -277,6 +293,16 @@ function render(d){
   const k=d.kpi||{};
   const ql=(d.latest||{}).quality_label||"good";
   const qc=QC[ql]||"#00D4AA";
+
+    const a = d.alerts || [];
+  document.getElementById("alerts").innerHTML =
+    a.length
+      ? `<div style="padding:10px;border:1px solid #EF4444;border-radius:8px;color:#EF4444;background:#0A1520">
+           ⚠️ Alerts: ${a.join(" | ")}
+         </div>`
+      : `<div style="padding:10px;border:1px solid #1E2D3D;border-radius:8px;color:#34D399;background:#0A1520">
+           ✅ Status: OK
+         </div>`;
 
   // ── KPI row
   document.getElementById("kpis").innerHTML=
