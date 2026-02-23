@@ -41,7 +41,7 @@ Step 3 — Run the live dashboard
 Open a second PowerShell window (no need for Admin here) and run:
 python dashboard_live.py
 Then open your browser at:
-http://127.0.0.1:8050
+http://127.0.0.1:8051
 The dashboard refreshes every 5 seconds automatically.
 
 What the dashboard shows

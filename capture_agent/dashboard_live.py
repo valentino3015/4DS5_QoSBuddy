@@ -2,7 +2,7 @@
 QoSBuddy — Live Dashboard Server (Pure HTML)
 KPIs: avg_rtt, p95_rtt, jitter, packet_loss, throughput_down, throughput_up,
       bandwidth_utilization, retransmission_rate, response_time, availability
-Run alongside capture_agent.py — opens at http://127.0.0.1:8050
+Run alongside capture_agent.py — opens at http://127.0.0.1:8051
 """
 
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -416,7 +416,7 @@ class Handler(BaseHTTPRequestHandler):
 if __name__ == "__main__":
     print("=" * 50)
     print("  QoSBuddy Live Dashboard")
-    print("  Open: http://127.0.0.1:8050")
+    print("  Open: http://127.0.0.1:8051")
     print("  Make sure capture_agent.py is running!")
     print("=" * 50)
-    HTTPServer(("127.0.0.1", 8050), Handler).serve_forever()
+    HTTPServer(("127.0.0.1", 8051), Handler).serve_forever()
