@@ -1,76 +1,164 @@
-QoSBuddy — Network Capture Agent & Live Dashboard
-Monitor your real network traffic in real time and save it as a labeled dataset.
+# QoSBuddy — Virtual Network Dataset (Mininet)
 
-What's in this folder
+Dataset collected from a simulated SDN network with controlled traffic scenarios.
+Used for training and validating QoS machine learning models.
 
-capture_agent.py -> Captures live network traffic and saves metrics to CSV
-dashboard_live.py -> Live dashboard — reads the CSV and displays charts in your browser
-qos_realtraffic.csv -> the dataset (auto-generated when the agent runs)
+---
 
-Requirements
+## Files
 
-Python 3.8+
-Wireshark (includes tshark) → wireshark.org
-Run PowerShell as Administrator (required for tshark to capture packets)
+| File | Description |
+|------|-------------|
+| `qos_dataset.csv` | Labeled dataset — 20 rows, 5 scenarios × 4 host pairs |
+| `topology.py` | Mininet topology script (virtual network definition) |
+| `collect_data.py` | Scenario orchestrator — generates traffic and collects metrics |
+| `dashboard.py` | Dash dashboard to visualize the dataset |
 
-Install Python dependencies:
-pip install pandas
+---
 
-Step 1 — Check your Wi-Fi interface number
-Open PowerShell as Administrator and run:
-C:\Program Files\Wireshark\tshark.exe
-Find the line that says (Wi-Fi) and note its number (e.g. 6).
-Open capture_agent.py and make sure this line matches:
-pythonINTERFACE = "6"   # ← change this if needed
+## How the data was collected
 
-Step 2 — Run the capture agent
-Open PowerShell as Administrator, go to your project folder, and run:
-python capture_agent.py
-You will see something like:
-[+] Gateway detected: 192.168.1.1
-[+] Interface: Wi-Fi (index 6)
-[Window 001] Capturing 5s of traffic... 87 flows | quality=good | latency=12.3ms | loss=0.0%
-[Window 002] Capturing 5s of traffic... 103 flows | quality=good | latency=11.8ms | loss=0.0%
-The agent captures a 5-second window of traffic every 5 seconds and writes
-each flow as a row in qos_realtraffic.csv.
-Just browse normally — open YouTube, make a call, load pages — everything
-gets captured automatically.
-Press Ctrl+C to stop. The CSV is saved automatically.
+A virtual network was created using **Mininet** running inside a Ubuntu VM.
 
-Step 3 — Run the live dashboard
-Open a second PowerShell window (no need for Admin here) and run:
-python dashboard_live.py
+**Network topology:**
+```
+Zone A          Core         Zone B
+  h1 ─┐                    ┌─ h3
+      ├─ s1 ── s3 (bottleneck) ── s2 ─┤
+  h2 ─┘                    └─ h4
+```
+
+- 4 virtual hosts (h1, h2 in Zone A — h3, h4 in Zone B)
+- 3 Open vSwitch switches (s1, s2 = edge, s3 = core bottleneck)
+- 1 OpenFlow SDN controller (c0)
+- Links use TC (Traffic Control) to emulate real network conditions
+
+For each scenario, the script:
+1. Starts the network with specific link parameters
+2. Runs `ping` between all host pairs → measures latency, jitter, packet loss
+3. Runs `iperf3 UDP` between all host pairs → measures throughput
+4. Saves results to CSV with the scenario label
+5. Tears down the network and moves to the next scenario
+
+---
+
+## Scenarios
+
+5 network conditions were simulated, each representing a different QoS state:
+
+| Scenario | Bandwidth | Delay | Packet Loss | Jitter | What it represents |
+|----------|-----------|-------|-------------|--------|--------------------|
+| `normal` | 10 Mbps | 5ms | 0% | 1ms | Healthy network, no issues |
+| `congested` | 1 Mbps | 20ms | 2% | 5ms | Network under heavy load |
+| `high_loss` | 5 Mbps | 10ms | 15% | 2ms | Poor link quality, packet drops |
+| `high_jitter` | 8 Mbps | 8ms | 0% | 20ms | Unstable network, variable delay |
+| `critical` | 0.5 Mbps | 50ms | 20% | 15ms | Severe degradation, near failure |
+
+---
+
+## Dataset structure
+
+**20 rows total** — 5 scenarios × 4 host pairs (h1→h3, h1→h4, h2→h3, h2→h4)
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `timestamp` | datetime | When the measurement was taken |
+| `scenario` | string | Network condition label (ground truth) |
+| `src` | string | Source host (h1 or h2) |
+| `dst` | string | Destination host (h3 or h4) |
+| `latency_ms` | float | Average RTT measured by ping (ms) |
+| `jitter_ms` | float | Latency standard deviation — ping variation (ms) |
+| `packet_loss_pct` | float | Percentage of lost packets (%) |
+| `throughput_mbps` | float | UDP throughput measured by iperf3 (Mbps) |
+
+---
+
+## Key properties
+
+**Ground-truth labels** — the `scenario` column is a reliable label because
+the network conditions were injected programmatically. There is no ambiguity
+about what caused each measurement.
+
+**Controlled variability** — each scenario has distinct and intentional
+differences across all 4 metrics, making the dataset well-suited for
+classification tasks.
+
+**Cross-zone traffic only** — all measurements are between Zone A and Zone B,
+passing through the bottleneck switch s3. This is where QoS degradation is
+injected and observed.
+
+---
+
+## Visualize the dataset — Dashboard
+
+A Dash dashboard is included to explore the dataset visually.
+
+**Requirements:**
+```
+pip install dash plotly pandas
+```
+
+**Run:**
+```
+python dashboard.py
+```
+
 Then open your browser at:
+```
 http://127.0.0.1:8050
-The dashboard refreshes every 5 seconds automatically.
+```
 
-What the dashboard shows
-Section
-KPI cards ->  Avg RTT, P95 RTT, Jitter, Packet Loss, Throughput ↓↑, BW Utilization, Retransmissions, Availability, Response Time
-RTT chart -> Latency, P95 and Jitter over time
-Loss chart -> Packet loss per window, colored by quality
-Throughput -> Download vs Upload bandwidth
-Traffic pie -> Distribution by type (DNS, HTTPS, VoIP, streaming...)
-Quality timeline -> GOOD / DEGRADED / BAD per window
-Live flows table -> Last 20 captured network flows with all metrics
+**What the dashboard shows:**
 
-What the CSV contains
-Each row = one network flow captured during a 5-second window.
-Column
-timestamp -> When the flow was captured
-traffic_type -> dns / https / voip_webrtc / streaming_udp / tcp_other...src_ip / dst_ip -> Source and destination IP addresses
-protocol -> TCP or UDP
-bandwidth_mbps ->Flow bandwidth in Mbps
-passive_jitter_ms ->Jitter measured from packet inter-arrival times retrans_rate_pct -> TCP retransmission rate (%)
-ping_google_latency_ms -> Active ping latency to Google
-ping_google_jitter_ms -> Active ping jitter toGoogle
-ping_google_loss_pct -> Active packet loss to Google
-dns_time_ms -> DNS resolution time
-quality_label -> good / degraded / bad (auto-labeled)
+| Section | Description |
+|---------|-------------|
+| **KPI cards** | Average latency, jitter, packet loss, throughput across all scenarios |
+| **Network topology** | Visual map of the virtual network (hosts, switches, zones) |
+| **Radar chart** | Multi-metric comparison of all 5 scenarios on a single chart |
+| **Latency boxplot** | Distribution of latency values per scenario |
+| **Jitter boxplot** | Distribution of jitter values per scenario |
+| **Packet loss bar chart** | Average loss per scenario |
+| **Latency heatmap** | Latency per source host per scenario |
+| **Raw data table** | Full dataset, filterable and sortable |
 
-Quality labels — how they work
-The agent automatically labels each window based on active ping results:
-Label -> Condition
-good -> Latency < 80ms AND Jitter < 15ms AND Loss < 1%
-degraded -> Latency < 150ms AND Jitter < 30ms AND Loss < 5%
-bad -> Latency > 150ms OR Jitter > 30ms OR Loss > 5%
+The dashboard reads `qos_dataset.csv` from the same folder — make sure both
+files are in the same directory before running.
+
+---
+
+## Intended use
+
+This dataset is the first building block for the QoSBuddy ML pipeline:
+
+```
+qos_dataset.csv  (this file)
+        ↓
+  Feature engineering
+        ↓
+  Model training
+  (anomaly detection / traffic classification / QoS prediction)
+        ↓
+  Deployment in QoSBuddy dashboard
+```
+
+Suggested next steps:
+- Use `scenario` as the classification target
+- Features: `latency_ms`, `jitter_ms`, `packet_loss_pct`, `throughput_mbps`
+- Suggested models to try: Random Forest, KNN, SVM, Isolation Forest (anomaly)
+- Combine with `qos_realtraffic.csv` (real traffic) for fine-tuning
+
+---
+
+## How to reproduce
+
+Requirements: Ubuntu VM with Mininet 2.3 installed (or the official Mininet VM image).
+
+```bash
+# Run the topology test
+sudo python3 topology.py
+
+# Run the full data collection (takes ~10 minutes)
+sudo python3 collect_data.py
+```
+
+Output: `qos_dataset.csv` in the same directory.
