@@ -2,9 +2,9 @@
 
 ## 📖 Overview
 
-**QoSBuddy** is a professional-grade data engineering pipeline designed to transform raw, heterogeneous LTE network logs into high-quality, labeled datasets for Machine Learning. It automates the tedious process of cleaning telecom data and applies domain-specific heuristics to identify network degradations.
+**QoSBuddy** data treatement is a professional-grade data engineering pipeline designed to transform raw, heterogeneous LTE network logs into high-quality, labeled datasets for Machine Learning. It automates the tedious process of cleaning telecom data and applies domain-specific heuristics to identify network degradations.
 
-The project is structured into two core modules:
+The work is structured into two core modules:
 * **`qosbuddy_labeler.py`**: The logic engine that maps columns, cleans RF values, and generates diagnostic labels.
 * **`qosbuddy_merger.py`**: A utility for fusing multiple sources, handling class imbalances, and preparing the final training set.
 
