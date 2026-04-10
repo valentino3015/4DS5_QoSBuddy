@@ -5,10 +5,6 @@ from typing import Any, Dict, List, Sequence
 from flask import Flask, jsonify, render_template, request
 from flask_mysqldb import MySQL
 
-import psutil
-import socket
-
-
 import config
 from collector import collect_metrics
 from db import INSERT_METRICS_SQL, metrics_values
@@ -74,7 +70,7 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
         "respTime": resp_time,
         "error": error,
         "availability": availability,
-    }
+       }
 
 
 @app.route("/")
@@ -116,27 +112,6 @@ def collect():
             cur.close()
 
     return "Metrics collected successfully!"
-
-
-
-@app.route('/api/active-connections')
-def active_connections():
-    conns = []
-    for conn in psutil.net_connections(kind='inet'):
-        if conn.raddr:
-            ip = conn.raddr.ip
-            port = conn.raddr.port
-            try:
-                hostname = socket.gethostbyaddr(ip)[0]
-            except Exception:
-                hostname = ip
-            conns.append({
-                "ip": ip,
-                "port": port,
-                "hostname": hostname,
-                "status": conn.status
-            })
-    return jsonify(conns)
 
 
 if __name__ == "__main__":
