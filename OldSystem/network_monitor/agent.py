@@ -14,6 +14,7 @@ DB_CONFIG = {
     "user": config.MYSQL_USER,
     "password": config.MYSQL_PASSWORD,
     "database": config.MYSQL_DB,
+    "port": config.MYSQL_PORT,
 }
 
 COLLECTION_INTERVAL = 0.1  # seconds (note: collection itself takes longer than this)

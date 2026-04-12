@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>QoSBuddy — Network Intelligence Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Exo+2:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:       #080c14;
+  --bg2:      #0d1526;
+  --bg3:      #111d35;
+  --border:   #1e3a5f;
+  --accent:   #00d4ff;
+  --accent2:  #0af5a0;
+  --critical: #ff3860;
+  --high:     #ff9f43;
+  --medium:   #ffd32a;
+  --low:      #0af5a0;
+  --text:     #c8e6ff;
+  --textdim:  #5a8ab0;
+  --mono:     'Share Tech Mono', monospace;
+  --sans:     'Exo 2', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 13px; height: 100%; overflow-x: hidden; }
+
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.06) 2px, rgba(0,0,0,0.06) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* Header */
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(90deg, #060a10 0%, #0a1628 100%);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: center; gap: 12px; }
+.logo-icon {
+  width: 36px; height: 36px; border: 2px solid var(--accent); border-radius: 8px;
+  display: grid; place-items: center; font-family: var(--mono); color: var(--accent); font-size: 16px;
+  animation: pulse-border 3s ease-in-out infinite;
+}
+@keyframes pulse-border {
+  0%,100% { box-shadow: 0 0 10px rgba(0,212,255,0.3); }
+  50%      { box-shadow: 0 0 24px rgba(0,212,255,0.7); }
+}
+.logo-text { font-size: 18px; font-weight: 700; letter-spacing: 2px; color: var(--accent); }
+.logo-sub  { font-size: 10px; color: var(--textdim); letter-spacing: 3px; font-family: var(--mono); }
+.header-right { display: flex; align-items: center; gap: 20px; }
+.conn-badge { font-family: var(--mono); font-size: 11px; padding: 4px 10px; border-radius: 4px; border: 1px solid; transition: all .3s; }
+.conn-badge.connected    { color: var(--accent2); border-color: var(--accent2); background: rgba(10,245,160,.08); }
+.conn-badge.disconnected { color: var(--critical); border-color: var(--critical); background: rgba(255,56,96,.08); }
+.clock { font-family: var(--mono); font-size: 13px; color: var(--textdim); }
+
+/* Stat bar */
+.statbar { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; border-bottom: 1px solid var(--border); background: var(--border); }
+.stat-cell { background: var(--bg2); padding: 10px 16px; display: flex; flex-direction: column; gap: 2px; }
+.stat-label { font-family: var(--mono); font-size: 9px; color: var(--textdim); letter-spacing: 2px; text-transform: uppercase; }
+.stat-value { font-size: 22px; font-weight: 700; font-family: var(--mono); transition: all .4s; }
+.stat-value.c  { color: var(--critical); }
+.stat-value.h  { color: var(--high); }
+.stat-value.m  { color: var(--medium); }
+.stat-value.l  { color: var(--low); }
+.stat-value.ok { color: var(--accent); }
+
+/* Main grid */
+.main-grid {
+  display: grid;
+  grid-template-columns: 300px 1fr 310px;
+  grid-template-rows: 250px 1fr;
+  gap: 1px; background: var(--border);
+  height: calc(100vh - 98px); min-height: 560px;
+}
+.panel { background: var(--bg2); display: flex; flex-direction: column; overflow: hidden; }
+.panel-header {
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; color: var(--accent);
+  letter-spacing: 2px; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.panel-header .badge {
+  font-size: 9px; padding: 2px 6px; border-radius: 3px;
+  background: rgba(0,212,255,.1); border: 1px solid var(--accent); color: var(--accent);
+}
+
+/* Network map */
+#network-map { grid-column: 1; grid-row: 1 / 3; }
+.map-canvas {
+  flex: 1; position: relative; overflow: hidden;
+  background: radial-gradient(ellipse at center, #0b1a30 0%, #060a14 100%);
+}
+.map-canvas svg { width: 100%; height: 100%; }
+
+/* KPI chart grid */
+#kpi-area {
+  grid-column: 2; grid-row: 1;
+  display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  gap: 1px; background: var(--border);
+}
+.chart-panel { background: var(--bg2); display: flex; flex-direction: column; overflow: hidden; }
+.chart-title {
+  padding: 7px 12px; font-family: var(--mono); font-size: 9px;
+  color: var(--textdim); letter-spacing: 2px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.chart-wrap { flex: 1; padding: 6px; position: relative; min-height: 0; }
+.chart-wrap canvas { position: absolute; inset: 6px; }
+
+/* Event feed */
+#event-feed { grid-column: 2; grid-row: 2; }
+.feed-scroll { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.feed-scroll::-webkit-scrollbar { width: 4px; }
+.feed-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+.event-card {
+  border-radius: 6px; border-left: 3px solid; background: var(--bg3);
+  padding: 10px 12px; cursor: pointer; transition: background .2s;
+  animation: slide-in .3s ease;
+}
+.event-card:hover { background: #16253f; }
+@keyframes slide-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.event-card.critical { border-color: var(--critical); }
+.event-card.high     { border-color: var(--high); }
+.event-card.medium   { border-color: var(--medium); }
+.event-card.low      { border-color: var(--low); }
+.card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
+.card-cell { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+.card-sev  { font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; font-weight: 700; }
+.card-sev.critical { background: rgba(255,56,96,.15);  color: var(--critical); }
+.card-sev.high     { background: rgba(255,159,67,.15); color: var(--high); }
+.card-sev.medium   { background: rgba(255,211,42,.15); color: var(--medium); }
+.card-sev.low      { background: rgba(10,245,160,.15); color: var(--low); }
+.card-cause  { font-size: 12px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+.card-action { font-size: 11px; color: var(--textdim); }
+.card-auto   { display: inline-block; margin-top: 4px; font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; }
+.card-auto.yes { background: rgba(10,245,160,.1); color: var(--accent2); border: 1px solid var(--accent2); }
+.card-auto.no  { background: rgba(255,159,67,.1);  color: var(--high);    border: 1px solid var(--high); }
+
+/* Detail panel */
+#detail-panel { grid-column: 3; grid-row: 1 / 3; }
+.detail-scroll { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.detail-scroll::-webkit-scrollbar { width: 4px; }
+.detail-scroll::-webkit-scrollbar-thumb { background: var(--border); }
+.detail-placeholder { flex: 1; display: grid; place-items: center; color: var(--textdim); font-family: var(--mono); font-size: 11px; text-align: center; padding: 20px; line-height: 1.8; }
+.detail-section h4 { font-family: var(--mono); font-size: 9px; color: var(--accent2); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; padding-bottom: 4px; border-bottom: 1px solid rgba(10,245,160,.2); }
+.summary-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 12px; line-height: 1.7; color: var(--text); }
+.step-list { list-style: none; display: flex; flex-direction: column; gap: 6px; }
+.step-list li { display: flex; gap: 8px; align-items: flex-start; font-size: 11px; color: var(--text); line-height: 1.5; }
+.step-num { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; background: rgba(0,212,255,.1); border: 1px solid var(--accent); color: var(--accent); font-family: var(--mono); font-size: 9px; display: grid; place-items: center; }
+.kpi-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.kpi-pill { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 6px 8px; }
+.kpi-pill .k { font-family: var(--mono); font-size: 9px; color: var(--textdim); }
+.kpi-pill .v { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); }
+.meta-row { display: flex; justify-content: space-between; font-size: 11px; padding: 4px 0; border-bottom: 1px solid rgba(30,58,95,.5); }
+.meta-row .mk { color: var(--textdim); }
+.meta-row .mv { color: var(--text); font-family: var(--mono); }
+.alt-item, .similar-item { background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 8px; margin-bottom: 5px; }
+.alt-item .ac { font-size: 11px; font-weight: 600; margin-bottom: 2px; }
+.alt-item .ap { font-size: 10px; color: var(--textdim); font-family: var(--mono); }
+.similar-item .si { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+.similar-item .sc { font-size: 11px; margin: 3px 0; }
+.similar-item .ss { font-size: 10px; color: var(--textdim); }
+.tag { display: inline-block; font-size: 9px; font-family: var(--mono); padding: 2px 6px; border-radius: 3px; margin-right: 4px; margin-bottom: 4px; background: rgba(0,212,255,.08); border: 1px solid rgba(0,212,255,.3); color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">Q</div>
+    <div>
+      <div class="logo-text">QoSBuddy</div>
+      <div class="logo-sub">Network Intelligence Platform</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="conn-badge disconnected" id="conn-badge">CONNECTING...</div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</header>
+
+<div class="statbar">
+  <div class="stat-cell"><div class="stat-label">Total Anomalies</div><div class="stat-value ok" id="s-total">0</div></div>
+  <div class="stat-cell"><div class="stat-label">Critical</div><div class="stat-value c" id="s-critical">0</div></div>
+  <div class="stat-cell"><div class="stat-label">High</div><div class="stat-value h" id="s-high">0</div></div>
+  <div class="stat-cell"><div class="stat-label">Medium</div><div class="stat-value m" id="s-medium">0</div></div>
+  <div class="stat-cell"><div class="stat-label">Auto-Fixed</div><div class="stat-value l" id="s-auto">0</div></div>
+  <div class="stat-cell"><div class="stat-label">Manual Pending</div><div class="stat-value h" id="s-manual">0</div></div>
+</div>
+
+<div class="main-grid">
+
+  <!-- Network map -->
+  <div class="panel" id="network-map">
+    <div class="panel-header">Network Map <span class="badge" id="map-count">0 cells</span></div>
+    <div class="map-canvas">
+      <svg id="map-svg" viewBox="0 0 280 500" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <filter id="glow-f">
+            <feGaussianBlur stdDeviation="2.5" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <g id="map-cells"></g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- KPI charts -->
+  <div id="kpi-area">
+    <div class="chart-panel"><div class="chart-title">RSRP (dBm) — Signal Strength</div><div class="chart-wrap"><canvas id="chart-rsrp"></canvas></div></div>
+    <div class="chart-panel"><div class="chart-title">SINR (dB) — Signal Quality</div><div class="chart-wrap"><canvas id="chart-sinr"></canvas></div></div>
+    <div class="chart-panel"><div class="chart-title">PRB Utilization (%) — Capacity</div><div class="chart-wrap"><canvas id="chart-prb"></canvas></div></div>
+    <div class="chart-panel"><div class="chart-title">Latency (ms) — Transport</div><div class="chart-wrap"><canvas id="chart-lat"></canvas></div></div>
+  </div>
+
+  <!-- Event feed -->
+  <div class="panel" id="event-feed">
+    <div class="panel-header">Live Anomaly & Remediation Feed <span class="badge" id="feed-count">0 events</span></div>
+    <div class="feed-scroll" id="feed-scroll"></div>
+  </div>
+
+  <!-- Detail panel -->
+  <div class="panel" id="detail-panel">
+    <div class="panel-header">Remediation Detail</div>
+    <div class="detail-scroll" id="detail-scroll">
+      <div class="detail-placeholder">Click any event card<br>to see the full diagnosis,<br>step-by-step fix &<br>similar past incidents.</div>
+    </div>
+  </div>
+
+</div><!-- /main-grid -->
+
+<script>
+// ── Config (WS_PORT injected by Python) ──────────────────────────────────────
+const WS_PORT     = 8765;
+const WS_URL      = 'ws://localhost:' + WS_PORT;
+const MAX_PTS     = 40;
+const MAX_CARDS   = 100;
+
+// ── Clock ─────────────────────────────────────────────────────────────────────
+setInterval(() => {
+  document.getElementById('clock').textContent =
+    new Date().toLocaleTimeString('en-GB', { hour12: false });
+}, 1000);
+
+// ── Chart helpers ─────────────────────────────────────────────────────────────
+const BASE_OPTS = {
+  responsive: true,
+  maintainAspectRatio: false,
+  animation: { duration: 400 },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      backgroundColor: '#111d35',
+      titleFont: { family: 'Share Tech Mono', size: 10 },
+      bodyFont:  { family: 'Share Tech Mono', size: 10 },
+    }
+  },
+  scales: {
+    x: {
+      ticks: { color: '#5a8ab0', font: { size: 8 }, maxTicksLimit: 6 },
+      grid:  { color: 'rgba(30,58,95,0.5)' }
+    },
+    y: {
+      ticks: { color: '#5a8ab0', font: { size: 8 } },
+      grid:  { color: 'rgba(30,58,95,0.5)' }
+    }
+  }
+};
+
+function makeChart(canvasId, color) {
+  const ctx = document.getElementById(canvasId).getContext('2d');
+  return new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        data: [], borderColor: color,
+        backgroundColor: color + '22', fill: true,
+        borderWidth: 1.5, pointRadius: 0, tension: 0.4
+      }]
+    },
+    options: JSON.parse(JSON.stringify(BASE_OPTS))
+  });
+}
+
+const charts = {
+  rsrp: makeChart('chart-rsrp', '#00d4ff'),
+  sinr: makeChart('chart-sinr', '#0af5a0'),
+  prb:  makeChart('chart-prb',  '#ff9f43'),
+  lat:  makeChart('chart-lat',  '#ff3860'),
+};
+
+function pushPoint(chart, label, value) {
+  if (value == null) return;
+  const d = chart.data;
+  d.labels.push(label);
+  d.datasets[0].data.push(Number(value));
+  if (d.labels.length > MAX_PTS) {
+    d.labels.shift();
+    d.datasets[0].data.shift();
+  }
+  chart.update('none');
+}
+
+// ── Stats ──────────────────────────────────────────────────────────────────────
+let stats = { total_anomalies:0, critical:0, high:0, medium:0, low:0, auto_resolved:0, manual_pending:0 };
+
+function renderStats() {
+  document.getElementById('s-total').textContent    = stats.total_anomalies;
+  document.getElementById('s-critical').textContent = stats.critical;
+  document.getElementById('s-high').textContent     = stats.high;
+  document.getElementById('s-medium').textContent   = stats.medium;
+  document.getElementById('s-auto').textContent     = stats.auto_resolved;
+  document.getElementById('s-manual').textContent   = stats.manual_pending;
+}
+
+// ── Network map ───────────────────────────────────────────────────────────────
+const SEV_COLOR = { critical:'#ff3860', high:'#ff9f43', medium:'#ffd32a', low:'#0af5a0', normal:'#2ecc71' };
+let cellPos = {};
+let cellStatus = {};
+
+function sevColor(s) { return SEV_COLOR[s] || '#5a8ab0'; }
+
+function layoutCells(statusMap) {
+  const cells = Object.keys(statusMap);
+  const cols = 5, W = 260, H = 480;
+  cells.forEach((id, i) => {
+    if (cellPos[id]) return;
+    const row = Math.floor(i / cols), col = i % cols;
+    cellPos[id] = {
+      x: 20 + col * ((W - 40) / Math.max(cols - 1, 1)),
+      y: 24 + row * 40
+    };
+  });
+}
+
+function renderMap() {
+  layoutCells(cellStatus);
+  const g = document.getElementById('map-cells');
+  g.innerHTML = '';
+  const entries = Object.entries(cellStatus);
+  document.getElementById('map-count').textContent = entries.length + ' cells';
+
+  entries.forEach(([id, sev]) => {
+    const pos = cellPos[id] || { x: 140, y: 240 };
+    const col = sevColor(sev);
+    const r   = sev === 'critical' ? 20 : 13;
+
+    // Aura ring
+    const aura = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    aura.setAttribute('cx', pos.x); aura.setAttribute('cy', pos.y);
+    aura.setAttribute('r', r);
+    aura.setAttribute('fill', col); aura.setAttribute('fill-opacity', '0.18');
+    g.appendChild(aura);
+
+    // Dot
+    const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+    dot.setAttribute('cx', pos.x); dot.setAttribute('cy', pos.y);
+    dot.setAttribute('r', 5); dot.setAttribute('fill', col);
+    dot.setAttribute('filter', 'url(#glow-f)');
+    dot.setAttribute('stroke', '#080c14'); dot.setAttribute('stroke-width', '1.5');
+    dot.style.cursor = 'pointer';
+    dot.addEventListener('click', () => filterFeed(id));
+    g.appendChild(dot);
+
+    // Label
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y + 14);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-size', '7'); lbl.setAttribute('fill', col);
+    lbl.setAttribute('font-family', 'Share Tech Mono');
+    lbl.textContent = id.replace('gNB_', '').replace('_C', '-C');
+    g.appendChild(lbl);
+  });
+}
+
+let feedFilter = null;
+function filterFeed(cellId) {
+  feedFilter = feedFilter === cellId ? null : cellId;
+  rebuildFeed();
+}
+
+// ── Feed ──────────────────────────────────────────────────────────────────────
+let allEvents = [];
+let feedCount = 0;
+
+function buildCard(evt) {
+  const sev = evt.anomaly_severity || 'low';
+  const rem = evt.remediation || {};
+  const act = rem.primary_action || {};
+  const cause = rem.cause || evt.rca && evt.rca.primary_cause || 'Unknown';
+
+  const card = document.createElement('div');
+  card.className = 'event-card ' + sev;
+  card.innerHTML =
+    '<div class="card-top">' +
+      '<span class="card-cell">' + (evt.cell_id || '?') + '</span>' +
+      '<span class="card-sev ' + sev + '">' + sev.toUpperCase() + '</span>' +
+    '</div>' +
+    '<div class="card-cause">' + cause + '</div>' +
+    '<div class="card-action">' + (act.action || '') + '</div>' +
+    '<span class="card-auto ' + (act.auto ? 'yes' : 'no') + '">' + (act.auto ? 'AUTO-FIX' : 'MANUAL') + '</span>';
+  card.addEventListener('click', () => showDetail(evt));
+  return card;
+}
+
+function rebuildFeed() {
+  const scroll = document.getElementById('feed-scroll');
+  scroll.innerHTML = '';
+  const filtered = feedFilter
+    ? allEvents.filter(e => e.cell_id === feedFilter)
+    : allEvents;
+  filtered.slice(-MAX_CARDS).reverse().forEach(e => scroll.appendChild(buildCard(e)));
+  document.getElementById('feed-count').textContent = allEvents.length + ' events';
+}
+
+function addEvent(evt, toFront) {
+  if (toFront) allEvents.push(evt);
+  else allEvents.unshift(evt);
+  if (allEvents.length > 500) allEvents.shift();
+  feedCount++;
+
+  // Update cell status
+  if (evt.cell_id) cellStatus[evt.cell_id] = evt.anomaly_severity || 'low';
+
+  // Update stats
+  const sev = evt.anomaly_severity || 'low';
+  stats.total_anomalies++;
+  if (stats[sev] !== undefined) stats[sev]++;
+  const act = (evt.remediation || {}).primary_action || {};
+  if (act.auto) stats.auto_resolved++; else stats.manual_pending++;
+
+  // Update charts
+  const snap = evt.kpi_snapshot || {};
+  const ts   = (evt.timestamp || '').slice(11, 19) || new Date().toLocaleTimeString();
+  pushPoint(charts.rsrp, ts, snap.RSRP_dBm);
+  pushPoint(charts.sinr, ts, snap.SINR_dB);
+  pushPoint(charts.prb,  ts, snap.PRB_util_DL_pct);
+  pushPoint(charts.lat,  ts, snap.latency_ms);
+
+  // Partial DOM update for performance (only rebuild if visible)
+  if (!feedFilter || evt.cell_id === feedFilter) {
+    const scroll = document.getElementById('feed-scroll');
+    const card = buildCard(evt);
+    scroll.prepend(card);
+    while (scroll.children.length > MAX_CARDS) scroll.lastChild.remove();
+    document.getElementById('feed-count').textContent = allEvents.length + ' events';
+  }
+
+  renderStats();
+  renderMap();
+}
+
+// ── Detail panel ──────────────────────────────────────────────────────────────
+function showDetail(evt) {
+  const rem  = evt.remediation || {};
+  const rca  = evt.rca || {};
+  const act  = rem.primary_action || {};
+  const snap = evt.kpi_snapshot || {};
+  const sev  = evt.anomaly_severity || 'low';
+
+  const KPI_LABELS = [
+    ['RSRP_dBm','RSRP dBm'], ['SINR_dB','SINR dB'],
+    ['PRB_util_DL_pct','PRB DL%'], ['CQI','CQI'],
+    ['BLER_DL_pct','BLER DL%'], ['latency_ms','Latency ms'],
+    ['throughput_DL_Mbps','DL Tput'], ['MOS','MOS'],
+    ['call_drop_rate_pct','CDR%'], ['HO_success_rate_pct','HO SR%'],
+  ];
+
+  const kpiHtml = KPI_LABELS
+    .filter(([k]) => snap[k] != null)
+    .map(([k,l]) => '<div class="kpi-pill"><div class="k">' + l + '</div><div class="v">' + Number(snap[k]).toFixed(1) + '</div></div>')
+    .join('');
+
+  const stepsHtml = (act.steps || [])
+    .map((s, i) => '<li><span class="step-num">' + (i+1) + '</span><span>' + s + '</span></li>')
+    .join('');
+
+  const altsHtml = (rem.alternatives || []).slice(0, 3)
+    .map(a => '<div class="alt-item"><div class="ac">' + (a.cause||'') + '</div><div class="ap">' + (a.action||'') + ' — ' + (a.priority||'') + ' priority</div></div>')
+    .join('');
+
+  const simHtml = (rem.similar_resolved || rca.similar_incidents || []).slice(0, 3)
+    .map(s => '<div class="similar-item"><div class="si">' + (s.incident_id||'') +
+      (s.similarity_pct != null ? ' <span style="color:var(--textdim)">' + s.similarity_pct + '% match</span>' : '') + '</div>' +
+      '<div class="sc">' + (s.root_cause||s.cause||'') + '</div>' +
+      '<div class="ss">' + (s.recommended_solution||'') + (s.resolution_hours ? ' — ' + s.resolution_hours + 'h' : '') + '</div></div>')
+    .join('');
+
+  const tags = (rca.rca_tags || []).map(t => '<span class="tag">' + t + '</span>').join('');
+
+  document.getElementById('detail-scroll').innerHTML =
+    '<div class="detail-section"><h4>Plain-English Summary</h4>' +
+      '<div class="summary-box">' + (act.summary || 'No summary available.') + '</div></div>' +
+
+    '<div class="detail-section"><h4>Event Info</h4>' +
+      '<div class="meta-row"><span class="mk">Cell</span><span class="mv">' + (evt.cell_id||'') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Region</span><span class="mv">' + (evt.region||'') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Vendor</span><span class="mv">' + (evt.vendor||'') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Band</span><span class="mv">' + (evt.nr_band||'') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Slice</span><span class="mv">' + (evt.network_slice||'') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Severity</span><span class="mv" style="color:' + sevColor(sev) + '">' + sev.toUpperCase() + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Score</span><span class="mv">' + (evt.anomaly_score != null ? Number(evt.anomaly_score).toFixed(2) : '-') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Confidence</span><span class="mv">' + (rem.confidence_pct != null ? rem.confidence_pct + '%' : '-') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">ETA</span><span class="mv">' + (act.eta_hours != null ? act.eta_hours + 'h' : '-') + '</span></div>' +
+      '<div class="meta-row"><span class="mk">Mode</span><span class="mv" style="color:' + (act.auto ? 'var(--low)' : 'var(--high)') + '">' + (act.auto ? 'Automatic' : 'Manual') + '</span></div>' +
+      '<div style="margin-top:8px">' + tags + '</div></div>' +
+
+    '<div class="detail-section"><h4>KPI Snapshot</h4><div class="kpi-grid">' + kpiHtml + '</div></div>' +
+
+    '<div class="detail-section"><h4>Remediation Steps</h4><ul class="step-list">' + stepsHtml + '</ul></div>' +
+
+    (altsHtml ? '<div class="detail-section"><h4>Alternative Causes</h4>' + altsHtml + '</div>' : '') +
+    (simHtml  ? '<div class="detail-section"><h4>Similar Past Incidents</h4>' + simHtml + '</div>' : '');
+}
+
+// ── Snapshot loader ────────────────────────────────────────────────────────────
+function loadSnapshot(data) {
+  // Seed stats from server
+  const s = data.stats || {};
+  Object.keys(stats).forEach(k => { if (s[k] !== undefined) stats[k] = Number(s[k]); });
+  renderStats();
+
+  // Seed cell status
+  Object.assign(cellStatus, data.cell_status || {});
+  renderMap();
+
+  // Seed charts from kpi_history
+  const hist = data.kpi_history || {};
+  const allPts = [];
+  Object.values(hist).forEach(pts => pts.forEach(p => allPts.push(p)));
+  allPts.sort((a, b) => String(a.t) < String(b.t) ? -1 : 1);
+  allPts.slice(-MAX_PTS).forEach(p => {
+    const ts = String(p.t || '').slice(11, 19);
+    pushPoint(charts.rsrp, ts, p.rsrp);
+    pushPoint(charts.sinr, ts, p.sinr);
+    pushPoint(charts.prb,  ts, p.prb);
+    pushPoint(charts.lat,  ts, p.latency);
+  });
+
+  // Populate feed (oldest first → newest at top)
+  const evts = data.events || [];
+  evts.forEach(e => {
+    allEvents.push(e);
+    if (e.cell_id) cellStatus[e.cell_id] = e.anomaly_severity || 'low';
+  });
+  rebuildFeed();
+
+  if (evts.length > 0) showDetail(evts[evts.length - 1]);
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+function connect() {
+  const ws    = new WebSocket(WS_URL);
+  const badge = document.getElementById('conn-badge');
+
+  ws.onopen = () => {
+    badge.textContent  = 'CONNECTED';
+    badge.className    = 'conn-badge connected';
+  };
+
+  ws.onmessage = (e) => {
+    let msg;
+    try { msg = JSON.parse(e.data); } catch(err) { return; }
+
+    if (msg.type === 'snapshot') {
+      loadSnapshot(msg);
+    } else if (msg.type === 'event') {
+      addEvent(msg.data, true);
+    }
+  };
+
+  ws.onclose = () => {
+    badge.textContent = 'RECONNECTING...';
+    badge.className   = 'conn-badge disconnected';
+    setTimeout(connect, 2000);
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+connect();
+</script>
+</body>
+</html>
