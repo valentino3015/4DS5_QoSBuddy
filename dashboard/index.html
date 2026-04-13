@@ -280,6 +280,16 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--navy5);border-radius:2px}
 
+/* ── Analytics View ─────────────────────────────────── */
+#view-analytics{display:none;overflow-y:auto;height:100%;padding:24px;background:radial-gradient(circle at center, rgba(10, 22, 40, 1) 0%, var(--navy) 100%);grid-template-columns:repeat(2, 1fr);grid-template-rows:repeat(2, minmax(280px, 1fr));gap:24px;}
+#view-analytics.active{display:grid;}
+.analytics-card{background:linear-gradient(135deg, rgba(14,31,56,0.6) 0%, rgba(6,16,30,0.8) 100%);border:1px solid rgba(62,168,255,0.15);box-shadow:inset 0 1px 0 rgba(255,255,255,0.05), 0 8px 32px rgba(0,0,0,0.4);backdrop-filter:blur(10px);border-radius:12px;display:flex;flex-direction:column;position:relative;padding:16px;transition:transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s;}
+.analytics-card:hover{transform:translateY(-2px);box-shadow:inset 0 1px 0 rgba(255,255,255,0.1), 0 12px 40px rgba(0,168,255,0.1);}
+.analytics-card .panel-title{font-family:var(--display);font-size:16px;letter-spacing:4px;margin-bottom:16px;border-bottom:1px solid rgba(62,168,255,0.1);padding-bottom:10px;color:var(--accent);display:flex;align-items:center;gap:10px;text-shadow:0 0 15px rgba(62,168,255,0.4);}
+.analytics-card .panel-title::before{content:'';display:block;width:4px;height:14px;background:var(--accent);border-radius:2px;box-shadow:0 0 10px var(--accent);}
+.analytics-chart-wrap{flex:1;position:relative;min-height:0;display:flex;justify-content:center;align-items:center;padding-top:5px;}
+.analytics-chart-wrap canvas{position:absolute;inset:0;filter:drop-shadow(0 0 8px rgba(0,0,0,0.5));}
+
 /* ── Topology View ──────────────────────────────────── */
 #view-topology{display:none;overflow:hidden;height:100%}
 #view-topology.active{display:grid;grid-template-columns:1fr 340px;gap:0}
@@ -531,6 +541,27 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
     </div>
   </div>
 </div><!-- /view-topology -->
+
+<!-- ── Analytics View ─────────────────────────────────── -->
+<div id="view-analytics">
+  <div class="analytics-card">
+    <div class="panel-title">Severity Distribution</div>
+    <div class="analytics-chart-wrap"><canvas id="chart-sev-dist"></canvas></div>
+  </div>
+  <div class="analytics-card">
+    <div class="panel-title">Top Affected Cells</div>
+    <div class="analytics-chart-wrap"><canvas id="chart-top-cells"></canvas></div>
+  </div>
+  <div class="analytics-card">
+    <div class="panel-title">Root Cause Breakdown</div>
+    <div class="analytics-chart-wrap"><canvas id="chart-rca-dist"></canvas></div>
+  </div>
+  <div class="analytics-card">
+    <div class="panel-title">Remediation Modes</div>
+    <div class="analytics-chart-wrap"><canvas id="chart-rem-modes"></canvas></div>
+  </div>
+</div><!-- /view-analytics -->
+
 </div><!-- /app -->
 
 <script>
@@ -785,6 +816,7 @@ function addEvent(evt) {
     renderPager(totalPages,total);
   }
   renderStats(); renderMap();
+  updateAnalytics();
 }
 
 function showDetail(evt) {
@@ -881,6 +913,185 @@ function loadSnapshot(data) {
     initTopologyFilters();
     renderTopologyTable();
   }
+  updateAnalytics();
+}
+
+/* ═══════ ANALYTICS VIEW ══════════════════════════════════ */
+const analyticsCharts = {};
+
+function initAnalyticsCharts() {
+  Chart.defaults.color = '#7898b8';
+  Chart.defaults.font.family = "'DM Mono', monospace";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.elements.arc.borderWidth = 2;
+  Chart.defaults.elements.arc.hoverOffset = 8;
+  
+  const tooltipOptions = {
+    backgroundColor: 'rgba(4,8,16,0.95)',
+    titleFont: { family: "'DM Mono', monospace", size: 12 },
+    bodyFont: { family: "'DM Mono', monospace", size: 12 },
+    padding: 12,
+    cornerRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(62,168,255,0.3)',
+    displayColors: true,
+    boxPadding: 6
+  };
+
+  const commonOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { animateScale: true, animateRotate: true, duration: 1500, easing: 'easeOutQuart' },
+    plugins: {
+      legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, padding: 22, color: '#c8d8f0', font: {size: 11} } },
+      tooltip: tooltipOptions
+    }
+  };
+
+  // Helper to pre-compute simple gradients
+  const createVerticalGradient = (canvasId, c1, c2) => {
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    const grad = ctx.createLinearGradient(0, 0, 0, 300);
+    grad.addColorStop(0, c1);
+    grad.addColorStop(1, c2);
+    return grad;
+  };
+
+  const colors = {
+    crit: ['#f03e5a', '#a00520'], high: ['#f07830', '#a03000'],
+    med:  ['#f0c830', '#907000'], low:  ['#28d898', '#007a4a'],
+    auto: ['#3ea8ff', '#0050a0'], man:  ['#f07830', '#a03000']
+  };
+
+  analyticsCharts.sevDist = new Chart(document.getElementById('chart-sev-dist').getContext('2d'), {
+    type: 'doughnut',
+    data: { 
+      labels: ['Low', 'Medium', 'High', 'Critical'], 
+      datasets: [{ 
+        data: [0,0,0,0], 
+        backgroundColor: [
+          createVerticalGradient('chart-sev-dist', ...colors.low),
+          createVerticalGradient('chart-sev-dist', ...colors.med),
+          createVerticalGradient('chart-sev-dist', ...colors.high),
+          createVerticalGradient('chart-sev-dist', ...colors.crit)
+        ],
+        borderColor: '#040810',
+        hoverBorderColor: ['#28d898', '#f0c830', '#f07830', '#f03e5a']
+      }] 
+    },
+    options: { ...commonOptions, cutout: '75%', layout: { padding: 10 } }
+  });
+
+  analyticsCharts.remModes = new Chart(document.getElementById('chart-rem-modes').getContext('2d'), {
+    type: 'doughnut',
+    data: { 
+      labels: ['Auto-Fixed', 'Manual Pending'], 
+      datasets: [{ 
+        data: [0,0], 
+        backgroundColor: [
+          createVerticalGradient('chart-rem-modes', ...colors.auto),
+          createVerticalGradient('chart-rem-modes', ...colors.man)
+        ],
+        borderColor: '#040810',
+        hoverBorderColor: ['#3ea8ff', '#f07830']
+      }] 
+    },
+    options: { ...commonOptions, cutout: '75%', layout: { padding: 10 } }
+  });
+
+  analyticsCharts.rcaDist = new Chart(document.getElementById('chart-rca-dist').getContext('2d'), {
+    type: 'doughnut',
+    data: { labels: [], datasets: [{ data: [], borderColor: '#040810', hoverOffset: 12 }] },
+    options: { 
+      ...commonOptions, 
+      cutout: '40%',
+      layout: { padding: 15 },
+      plugins: { 
+        legend: { position: 'right', labels: { boxWidth: 8, usePointStyle: true, padding: 15, font: {size: 10} } },
+        tooltip: tooltipOptions
+      } 
+    }
+  });
+
+  analyticsCharts.topCells = new Chart(document.getElementById('chart-top-cells').getContext('2d'), {
+    type: 'bar',
+    data: { 
+      labels: [], 
+      datasets: [{ 
+        label: 'Anomalies', 
+        data: [], 
+        backgroundColor: createVerticalGradient('chart-top-cells', '#00c8e0', '#0050a0'), 
+        borderRadius: 6, 
+        borderSkipped: false, 
+        hoverBackgroundColor: '#00eaff' 
+      }] 
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 1500, easing: 'easeOutBounce' },
+      plugins: { legend: { display: false }, tooltip: tooltipOptions },
+      scales: {
+        y: { beginAtZero: true, grid: { color: 'rgba(62,168,255,0.08)', drawBorder: false }, ticks: { padding: 10, font: { family: 'Bebas Neue', size: 14 } } },
+        x: { grid: { display: false, drawBorder: false }, ticks: { color: '#00c8e0', font: {size: 10} } }
+      },
+      layout: { padding: { top: 15 } }
+    }
+  });
+}
+initAnalyticsCharts(); // Call once at startup
+
+function updateAnalytics() {
+  if(!allEvents.length) return;
+  
+  // Severity Distribution
+  const sevCounts = {low:0, medium:0, high:0, critical:0};
+  // Remediation Modes
+  const modeCounts = {auto:0, manual:0};
+  // RCA Causes
+  const rcaCounts = {};
+  // Cell Counts
+  const cellCounts = {};
+
+  allEvents.forEach(evt => {
+    sevCounts[evt.anomaly_severity||'low']++;
+    
+    const rem = evt.remediation?.primary_action || {};
+    if(rem.auto) modeCounts.auto++; else modeCounts.manual++;
+
+    const cause = evt.remediation?.cause || evt.rca?.primary_cause;
+    if(cause) { rcaCounts[cause] = (rcaCounts[cause]||0) + 1; }
+
+    if(evt.cell_id) { cellCounts[evt.cell_id] = (cellCounts[evt.cell_id]||0) + 1; }
+  });
+
+  analyticsCharts.sevDist.data.datasets[0].data = [sevCounts.low, sevCounts.medium, sevCounts.high, sevCounts.critical];
+  analyticsCharts.sevDist.update();
+
+  analyticsCharts.remModes.data.datasets[0].data = [modeCounts.auto, modeCounts.manual];
+  analyticsCharts.remModes.update();
+
+  const rcaSorted = Object.entries(rcaCounts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+  analyticsCharts.rcaDist.data.labels = rcaSorted.map(i=>i[0]);
+  analyticsCharts.rcaDist.data.datasets[0].data = rcaSorted.map(i=>i[1]);
+  // Futuristic Palette for RCA Pie
+  const neonColors = [
+    ['#00f0ff', '#005080'], ['#ff0055', '#800020'], ['#b500ff', '#400080'], 
+    ['#ffea00', '#807000'], ['#00ff66', '#006020'], ['#ff8800', '#804000'], 
+    ['#0088ff', '#003080'], ['#ff00aa', '#800040'], ['#aaff00', '#408000'], 
+    ['#ffffff', '#808080']
+  ];
+  analyticsCharts.rcaDist.data.datasets[0].backgroundColor = neonColors.slice(0, rcaSorted.length).map(c => {
+    const ctx = document.getElementById('chart-rca-dist').getContext('2d');
+    const grad = ctx.createLinearGradient(0,0,0,300);
+    grad.addColorStop(0, c[0]); grad.addColorStop(1, c[1]);
+    return grad;
+  });
+  analyticsCharts.rcaDist.update();
+
+  const cellsSorted = Object.entries(cellCounts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
+  analyticsCharts.topCells.data.labels = cellsSorted.map(i=>i[0].replace('gNB_', ''));
+  analyticsCharts.topCells.data.datasets[0].data = cellsSorted.map(i=>i[1]);
+  analyticsCharts.topCells.update();
 }
 
 /* ═══════ TOPOLOGY VIEW ═══════════════════════════════════ */
@@ -892,15 +1103,16 @@ document.querySelectorAll('.nav-pill').forEach(pill => {
     document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
     pill.classList.add('active');
     const label = pill.textContent.trim().toLowerCase();
+    
     document.getElementById('view-overview').style.display = label === 'overview' ? '' : 'none';
+    
     const topoView = document.getElementById('view-topology');
-    if (label === 'topology') {
-      topoView.style.display = '';
-      topoView.classList.add('active');
-    } else {
-      topoView.style.display = 'none';
-      topoView.classList.remove('active');
-    }
+    if (label === 'topology') topoView.classList.add('active');
+    else topoView.classList.remove('active');
+
+    const analyticsView = document.getElementById('view-analytics');
+    if (label === 'analytics') analyticsView.classList.add('active');
+    else analyticsView.classList.remove('active');
   });
 });
 
