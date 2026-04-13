@@ -91,11 +91,10 @@ THRESHOLDS = {
 }
 
 SEVERITY_MAP = {
-    0:  "normal",
-    1:  "low",
-    2:  "medium",
-    3:  "high",
-    4:  "critical",
+    0: "normal",
+    1: "low",
+    2: "medium",
+    3: "high",
 }
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -308,8 +307,14 @@ class StreamInferencer:
         # Rolling windows per cell for LSTM
         self.cell_windows: dict[str, list] = {}
 
+        # Signal 4: neighbour correlation
+        # key=timestamp, value=set of cell_ids flagged anomalous at that timestamp
+        self.ts_anomaly_cells: dict[str, set] = {}
+        # cell -> list of neighbour cell_ids (from cell_topology.csv)
+        self.neighbour_map: dict[str, list] = self._load_neighbour_map()
+
         # Stats
-        self.stats = {"processed": 0, "anomalies": 0, "alerts_emitted": 0}
+        self.stats = {"processed": 0, "anomalies": 0, "alerts_emitted": 0, "critical_escalations": 0}
 
         self._load_models()
 
@@ -326,6 +331,43 @@ class StreamInferencer:
         self.lstm.load_state_dict(torch.load(LSTM_PATH, map_location=self.device))
         self.lstm.eval()
         log.info("  Models loaded [OK]")
+
+    # ── Load cell topology neighbour map ─────────────────────────────────────
+    def _load_neighbour_map(self) -> dict[str, list]:
+        topo_path = DATA_DIR / "cell_topology.csv"
+        if not topo_path.exists():
+            log.warning("cell_topology.csv not found - neighbour correlation disabled")
+            return {}
+        try:
+            df = pd.read_csv(topo_path)
+            nb_map = {}
+            for _, r in df.iterrows():
+                cell = str(r.get("cell_id", ""))
+                raw  = str(r.get("neighbor_cells", ""))
+                nb_map[cell] = [n.strip() for n in raw.split(";") if n.strip()]
+            log.info(f"  Neighbour map loaded: {len(nb_map)} cells")
+            return nb_map
+        except Exception as e:
+            log.warning(f"Could not load neighbour map: {e}")
+            return {}
+
+    # ── Signal 4: neighbour correlation ───────────────────────────────────────
+    def _neighbour_vote(self, cell_id: str, timestamp: str, is_anomaly: bool) -> bool:
+        # Register anomaly state for this cell+timestamp
+        bucket = self.ts_anomaly_cells.setdefault(timestamp, set())
+        if is_anomaly:
+            bucket.add(cell_id)
+        # Keep only last 5 timestamp buckets to handle minor out-of-order rows
+        if len(self.ts_anomaly_cells) > 5:
+            oldest = sorted(self.ts_anomaly_cells.keys())[0]
+            del self.ts_anomaly_cells[oldest]
+        if not is_anomaly:
+            return False
+        neighbours = self.neighbour_map.get(cell_id, [])
+        if not neighbours:
+            return False
+        anomalous_neighbours = sum(1 for nb in neighbours if nb in bucket)
+        return anomalous_neighbours >= 2
 
     # ── Isolation Forest score for a single row ────────────────────────────────
     def _if_score(self, row: pd.Series) -> tuple[bool, float]:
@@ -350,13 +392,14 @@ class StreamInferencer:
             pred = self.lstm(seq).item()
         return round(pred * 10, 3)   # back to [0, 10]
 
-    # ── Fuse rule + IF + LSTM into final alert ─────────────────────────────────
+    # ── Fuse rule + IF + LSTM + neighbour into final alert ───────────────────
     def _fuse_signals(self, rule: dict, if_anomaly: bool, if_score: float,
-                      lstm_score: float | None) -> dict:
+                      lstm_score: float | None, neighbour_escalate: bool = False) -> dict:
+        # 3 model votes → 3 anomaly levels
         votes = 0
-        if rule["rule_triggered"]:              votes += 1
-        if if_anomaly:                          votes += 1
-        if lstm_score is not None and lstm_score > 5.0:  votes += 1
+        if rule["rule_triggered"]:                       votes += 1
+        if if_anomaly:                                   votes += 1
+        if lstm_score is not None and lstm_score > 5.0: votes += 1
 
         combined_score = round(
             (rule["rule_score"] * 0.35) +
@@ -364,22 +407,27 @@ class StreamInferencer:
             ((lstm_score or 0)  * 0.25), 3
         )
 
-        if votes == 0 or combined_score < 2.0:
+        # Honest vote-to-label mapping: 3 voters -> 3 anomaly levels
+        if votes == 0:
             final_label = "normal"
-        elif votes == 1 or combined_score < 4.0:
+        elif votes == 1:
             final_label = "low"
-        elif votes == 2 or combined_score < 6.5:
+        elif votes == 2:
             final_label = "medium"
-        elif combined_score < 8.5:
+        else:  # votes == 3, all models agree
             final_label = "high"
-        else:
+
+        # 4th signal (neighbour correlation) is the ONLY path to critical.
+        # Requires: all 3 models agree (high) AND cluster event confirmed.
+        if final_label == "high" and neighbour_escalate:
             final_label = "critical"
 
         return {
-            "votes":           votes,
-            "combined_score":  combined_score,
-            "final_label":     final_label,
-            "is_anomaly":      final_label != "normal",
+            "votes":               votes,
+            "combined_score":      combined_score,
+            "final_label":         final_label,
+            "is_anomaly":          final_label != "normal",
+            "neighbour_escalated": final_label == "critical",
         }
 
     # ── Emit one JSON event to feed file and console ───────────────────────────
@@ -401,7 +449,7 @@ class StreamInferencer:
         log.info(
             f"{icon} [{sev.upper():8s}] {event['cell_id']} | "
             f"score={event['fusion']['combined_score']:.2f} | "
-            f"votes={event['fusion']['votes']}/3 | "
+            f"votes={event['fusion']['votes']}/3 nb={event['fusion'].get('neighbour_escalated',False)} | "
             f"breaches={len(event['rule_engine']['breached_kpis'])}"
         )
         self.stats["alerts_emitted"] += 1
@@ -443,11 +491,25 @@ class StreamInferencer:
                 # 3 — LSTM prediction
                 lstm_score = self._lstm_predict(row["cell_id"], x_scaled)
 
-                # 4 — Fuse
-                fusion = self._fuse_signals(rule_result, if_anomaly, if_score, lstm_score)
+                # 4 — Neighbour correlation (4th signal)
+                # A cell is "pre-anomalous" if at least 1 model flagged it
+                pre_anomaly = (
+                    rule_result["rule_triggered"] or if_anomaly or
+                    (lstm_score is not None and lstm_score > 5.0)
+                )
+                neighbour_escalate = self._neighbour_vote(
+                    row["cell_id"], str(row["timestamp"]), pre_anomaly
+                )
+
+                # 5 — Fuse all 4 signals
+                fusion = self._fuse_signals(
+                    rule_result, if_anomaly, if_score, lstm_score, neighbour_escalate
+                )
 
                 if fusion["is_anomaly"]:
                     self.stats["anomalies"] += 1
+                if fusion.get("neighbour_escalated"):
+                    self.stats["critical_escalations"] += 1
 
                 # 5 — Build event (always emit; downstream agents filter by label)
                 def _safe(col, default=""):
@@ -479,8 +541,9 @@ class StreamInferencer:
                         "horizon":              "next_15min",
                         "ready":                lstm_score is not None,
                     },
-                    "fusion":       fusion,
-                    "ground_truth": _safe("label", "unknown"),
+                    "fusion":              fusion,
+                    "neighbour_escalated": fusion.get("neighbour_escalated", False),
+                    "ground_truth":        _safe("label", "unknown"),
                 }
 
                 # Only emit anomalies (or everything in debug mode)

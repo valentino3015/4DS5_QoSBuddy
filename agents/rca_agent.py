@@ -337,9 +337,15 @@ class RCAEngine:
         x_scaled  = self.scaler.transform(x_raw.reshape(1, -1))
         distances, indices = self.knn.kneighbors(x_scaled, n_neighbors=top_k)
 
+        # Compute a reference scale from the retrieved distances so the similarity
+        # percentages spread nicely.  Using exponential decay: sim = exp(-d / scale).
+        dists = distances[0]
+        ref_scale = max(float(np.mean(dists)), 0.5)  # avoid div-by-zero
+
         similar = []
-        for dist, idx in zip(distances[0], indices[0]):
+        for dist, idx in zip(dists, indices[0]):
             inc = self.incident_db[idx]
+            sim_pct = round(float(np.clip(np.exp(-dist / ref_scale) * 100, 1, 99)), 1)
             similar.append({
                 "incident_id":        inc["incident_id"],
                 "root_cause":         inc["root_cause"],
@@ -348,7 +354,7 @@ class RCAEngine:
                 "resolution_hours":   inc["resolution_hours"],
                 "recommended_solution": inc["recommended_solution"],
                 "kpi_distance":       round(float(dist), 4),
-                "similarity_pct":     round(max(0.0, 1.0 - dist / 20.0) * 100, 1),
+                "similarity_pct":     sim_pct,
             })
         return similar
 
@@ -419,18 +425,41 @@ class RCAEngine:
         # 4 — Similar incidents
         similar = self._find_similar(x_raw, top_k=3)
 
-        # 5 — Overall RCA confidence (blend RF prob + override boost)
+        # 5 — Overall RCA confidence
         confidence = round(top_prob * 100, 1)
 
+        # 6 — Neighbour escalation bonus
+        # If Agent 1 flagged this as a cluster event (neighbour_escalated=True),
+        # it narrows the cause space to network-wide issues (coverage, interference,
+        # transport) and boosts our confidence since isolated config errors are
+        # unlikely to affect multiple cells simultaneously.
+        neighbour_escalated = event.get("neighbour_escalated", False)
+        cluster_tags = []
+        if neighbour_escalated:
+            confidence = round(min(99.0, confidence + 12.0), 1)
+            cluster_tags = ["cluster_event", "multi_cell"]
+            # If the top cause is a single-cell config issue, demote it
+            single_cell_causes = {"PCI collision", "Bad tilt/azimuth", "SRVCC failure",
+                                   "Wrong codec", "Massive MIMO config issue"}
+            if top_cause in single_cell_causes and len(ranked_causes) > 1:
+                # Swap in the next most likely non-single-cell cause
+                for alt in ranked_causes[1:]:
+                    if alt["cause"] not in single_cell_causes:
+                        top_cause = alt["cause"]
+                        tags      = CAUSE_TO_TAG.get(top_cause, tags)
+                        solution  = CAUSE_TO_SOLUTION.get(top_cause, solution)
+                        break
+
         return {
-            "status":            "ok",
-            "primary_cause":     top_cause,
-            "confidence_pct":    confidence,
-            "rca_tags":          tags,
-            "used_rule_override": used_override,
-            "ranked_causes":     ranked_causes[:8],    # top 8 for downstream agents
+            "status":              "ok",
+            "primary_cause":       top_cause,
+            "confidence_pct":      confidence,
+            "rca_tags":            tags + cluster_tags,
+            "used_rule_override":  used_override,
+            "neighbour_escalated": neighbour_escalated,
+            "ranked_causes":       ranked_causes[:8],
             "recommended_solution": solution,
-            "similar_incidents": similar,
+            "similar_incidents":   similar,
         }
 
 
