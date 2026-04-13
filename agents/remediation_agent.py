@@ -40,6 +40,7 @@ for d in [OUTPUT_DIR, LOG_DIR, DASHBOARD_DIR]:
 
 RCA_FEED         = OUTPUT_DIR / "rca_feed.jsonl"
 REMEDIATION_FEED = OUTPUT_DIR / "remediation_feed.jsonl"
+TOPOLOGY_PATH    = DATA_DIR / "cell_topology.csv"
 
 # Logging
 if hasattr(sys.stdout, "reconfigure"):
@@ -297,6 +298,40 @@ class DashboardState:
         self.cell_status = {}
         self.stats       = dict(total_anomalies=0, critical=0, high=0,
                                 medium=0, low=0, auto_resolved=0, manual_pending=0)
+        self.topology    = self._load_topology()
+
+    @staticmethod
+    def _load_topology():
+        """Load cell_topology.csv into a list of dicts for the dashboard."""
+        if not TOPOLOGY_PATH.exists():
+            log.warning(f"Topology file not found at {TOPOLOGY_PATH}")
+            return []
+        try:
+            import csv
+            rows = []
+            with open(TOPOLOGY_PATH, newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    rows.append({
+                        "cell_id":     r.get("cell_id", ""),
+                        "site_id":     r.get("site_id", ""),
+                        "region":      r.get("region", ""),
+                        "lat":         float(r.get("latitude", 0) or 0),
+                        "lng":         float(r.get("longitude", 0) or 0),
+                        "vendor":      r.get("vendor", ""),
+                        "band":        r.get("nr_band", ""),
+                        "bw":          r.get("bandwidth_MHz", ""),
+                        "mimo":        r.get("mimo_config", ""),
+                        "slice":       r.get("network_slice", ""),
+                        "neighbors":   [n.strip() for n in (r.get("neighbor_cells", "") or "").split(";") if n.strip()],
+                        "type":        r.get("deployment_type", ""),
+                        "active":      r.get("active", "") == "Yes",
+                    })
+            log.info(f"  Topology loaded: {len(rows)} cells")
+            return rows
+        except Exception as e:
+            log.warning(f"Could not load topology: {e}")
+            return []
 
     def push(self, event):
         with self._lock:
@@ -335,6 +370,7 @@ class DashboardState:
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
                 "events":      list(self.events)[-100:],
+                "topology":    self.topology,
             }
 
 

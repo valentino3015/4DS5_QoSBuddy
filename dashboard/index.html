@@ -28,7 +28,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;
 body::after{content:'';position:fixed;top:-60px;right:-60px;width:480px;height:480px;
   background:radial-gradient(circle at center,rgba(30,80,180,0.10) 0%,rgba(62,168,255,0.04) 40%,transparent 70%);
   pointer-events:none;z-index:0}
-#app{position:relative;z-index:1;display:grid;grid-template-rows:56px 72px 1fr;height:100vh}
+#app{position:relative;z-index:1;display:grid;grid-template-rows:56px 1fr;height:100vh}
+#view-overview{display:flex;flex-direction:column;overflow:hidden;min-height:0}
+#view-overview .statbar{flex-shrink:0}
+#view-overview .body{flex:1;min-height:0}
 
 /* Header */
 header{display:flex;align-items:center;justify-content:space-between;padding:0 24px;
@@ -276,6 +279,81 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--navy5);border-radius:2px}
+
+/* ── Topology View ──────────────────────────────────── */
+#view-topology{display:none;overflow:hidden;height:100%}
+#view-topology.active{display:grid;grid-template-columns:1fr 340px;gap:0}
+.topo-main{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+.topo-toolbar{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--navy3) 0%,var(--navy2) 100%);flex-shrink:0;flex-wrap:wrap}
+.topo-search{background:var(--navy);border:1px solid var(--border);border-radius:var(--r);padding:6px 12px;
+  color:var(--text);font-family:var(--mono);font-size:11px;outline:none;width:200px;transition:border-color .2s}
+.topo-search:focus{border-color:var(--accent)}
+.topo-search::placeholder{color:var(--textdim)}
+.topo-select{background:var(--navy);border:1px solid var(--border);border-radius:var(--r);padding:5px 10px;
+  color:var(--text);font-family:var(--mono);font-size:10px;outline:none;cursor:pointer}
+.topo-select:focus{border-color:var(--accent)}
+.topo-stats{margin-left:auto;display:flex;gap:14px}
+.topo-stat{font-family:var(--mono);font-size:10px;color:var(--textdim)}
+.topo-stat b{color:var(--text);font-weight:500}
+
+.topo-table-wrap{flex:1;overflow-y:auto;padding:0}
+.topo-table{width:100%;border-collapse:collapse}
+.topo-table thead{position:sticky;top:0;z-index:2}
+.topo-table th{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;
+  padding:8px 12px;text-align:left;border-bottom:1px solid var(--border);
+  background:var(--navy3);cursor:pointer;user-select:none;white-space:nowrap}
+.topo-table th:hover{color:var(--accent)}
+.topo-table th .sort-arrow{margin-left:4px;font-size:8px;color:var(--accent);opacity:0}
+.topo-table th.sorted .sort-arrow{opacity:1}
+.topo-table td{padding:7px 12px;border-bottom:1px solid var(--border2);font-size:11px;white-space:nowrap}
+.topo-table tr{transition:background .15s;cursor:pointer}
+.topo-table tbody tr:hover{background:rgba(62,168,255,0.04)}
+.topo-table tbody tr.selected{background:rgba(62,168,255,0.1)}
+.topo-cell-id{font-family:var(--mono);font-size:10px;color:var(--accent);letter-spacing:0.5px}
+.topo-site{font-family:var(--mono);font-size:10px;color:var(--textdim)}
+.topo-region{font-size:10px}
+.topo-vendor{font-family:var(--mono);font-size:10px}
+.topo-vendor.ericsson{color:#3b82f6}.topo-vendor.nokia{color:#06b6d4}.topo-vendor.huawei{color:#ef4444}
+.topo-band{font-family:var(--mono);font-size:10px;color:var(--cyan)}
+.topo-type{font-family:var(--mono);font-size:9px;padding:2px 8px;border-radius:10px;display:inline-block}
+.topo-type.macro{background:rgba(62,168,255,0.1);color:var(--accent)}
+.topo-type.small-cell{background:rgba(40,216,152,0.1);color:var(--green)}
+.topo-type.indoor{background:rgba(240,200,48,0.1);color:var(--yellow)}
+.topo-type.rooftop{background:rgba(240,120,48,0.1);color:var(--orange)}
+.topo-status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.topo-status-dot.active{background:var(--green);box-shadow:0 0 6px rgba(40,216,152,0.5)}
+.topo-status-dot.inactive{background:var(--red);box-shadow:0 0 6px rgba(240,62,90,0.3)}
+.topo-sev-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+
+/* Topology detail sidebar */
+.topo-detail{display:flex;flex-direction:column;overflow:hidden;background:var(--navy)}
+.topo-detail-head{padding:12px 16px;border-bottom:1px solid var(--border);
+  background:linear-gradient(180deg,var(--navy3) 0%,var(--navy2) 100%);flex-shrink:0}
+.topo-detail-head .panel-title{font-size:13px}
+.topo-detail-body{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+.topo-detail-empty{flex:1;display:grid;place-items:center;font-family:var(--mono);font-size:10px;
+  color:var(--textdim);letter-spacing:2px;text-align:center;line-height:2.5;text-transform:uppercase}
+.topo-cell-header{display:flex;align-items:center;gap:12px;margin-bottom:4px}
+.topo-cell-header .topo-cell-big{font-family:var(--display);font-size:22px;color:var(--accent);letter-spacing:2px}
+.topo-cell-header .topo-status-badge{font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:12px;
+  text-transform:uppercase;letter-spacing:1px}
+.topo-cell-header .topo-status-badge.active{background:rgba(40,216,152,0.1);border:1px solid rgba(40,216,152,0.3);color:var(--green)}
+.topo-cell-header .topo-status-badge.inactive{background:rgba(240,62,90,0.1);border:1px solid rgba(240,62,90,0.3);color:var(--red)}
+.topo-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.topo-info-item{background:var(--navy3);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px}
+.topo-info-item .topo-info-k{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin-bottom:3px}
+.topo-info-item .topo-info-v{font-size:12px;color:var(--text);font-weight:500}
+.topo-neighbors-title{font-family:var(--display);font-size:11px;letter-spacing:3px;color:var(--accent);
+  text-transform:uppercase;padding-bottom:6px;margin-bottom:8px;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;gap:8px}
+.topo-neighbors-title::before{content:'';display:block;width:3px;height:12px;border-radius:2px;
+  background:var(--accent);box-shadow:0 0 8px var(--accent-glow)}
+.topo-neighbor{display:flex;align-items:center;gap:8px;padding:5px 10px;margin-bottom:3px;
+  background:var(--navy3);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:background .15s}
+.topo-neighbor:hover{background:rgba(62,168,255,0.06)}
+.topo-neighbor .nb-id{font-family:var(--mono);font-size:10px;color:var(--cyan);flex:1}
+.topo-neighbor .nb-region{font-size:10px;color:var(--textdim)}
 </style>
 </head>
 <body>
@@ -307,6 +385,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
   </div>
 </header>
 
+<div id="view-overview" class="view-content active">
 <div class="statbar">
   <div class="stat ok"><div class="stat-label">Total Anomalies</div><div class="stat-value ok" id="s-total">0</div><div class="stat-sub">detected</div></div>
   <div class="stat c"><div class="stat-label">Critical</div><div class="stat-value c" id="s-critical">0</div><div class="stat-sub">cluster events</div></div>
@@ -399,7 +478,60 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
     </div>
   </div>
 </div>
-</div>
+</div><!-- /view-overview -->
+
+<!-- ── Topology View ──────────────────────────────────── -->
+<div id="view-topology">
+  <div class="topo-main">
+    <div class="topo-toolbar">
+      <input type="text" class="topo-search" id="topo-search" placeholder="Search cell ID, site, region...">
+      <select class="topo-select" id="topo-region-filter"><option value="">All Regions</option></select>
+      <select class="topo-select" id="topo-vendor-filter"><option value="">All Vendors</option></select>
+      <select class="topo-select" id="topo-band-filter"><option value="">All Bands</option></select>
+      <select class="topo-select" id="topo-type-filter"><option value="">All Types</option></select>
+      <select class="topo-select" id="topo-status-filter">
+        <option value="">All Status</option>
+        <option value="active">Active</option>
+        <option value="inactive">Inactive</option>
+      </select>
+      <div class="topo-stats">
+        <div class="topo-stat">Total: <b id="topo-total">0</b></div>
+        <div class="topo-stat">Active: <b id="topo-active" style="color:var(--green)">0</b></div>
+        <div class="topo-stat">Shown: <b id="topo-shown">0</b></div>
+      </div>
+    </div>
+    <div class="topo-table-wrap">
+      <table class="topo-table" id="topo-table">
+        <thead>
+          <tr>
+            <th data-col="cell_id">Cell ID <span class="sort-arrow">▲</span></th>
+            <th data-col="site_id">Site <span class="sort-arrow">▲</span></th>
+            <th data-col="region">Region <span class="sort-arrow">▲</span></th>
+            <th data-col="vendor">Vendor <span class="sort-arrow">▲</span></th>
+            <th data-col="band">Band <span class="sort-arrow">▲</span></th>
+            <th data-col="bw">BW <span class="sort-arrow">▲</span></th>
+            <th data-col="mimo">MIMO <span class="sort-arrow">▲</span></th>
+            <th data-col="slice">Slice <span class="sort-arrow">▲</span></th>
+            <th data-col="type">Type <span class="sort-arrow">▲</span></th>
+            <th data-col="active">Status <span class="sort-arrow">▲</span></th>
+            <th data-col="neighbors">Neighbors <span class="sort-arrow">▲</span></th>
+            <th data-col="anomaly">Health <span class="sort-arrow">▲</span></th>
+          </tr>
+        </thead>
+        <tbody id="topo-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="topo-detail">
+    <div class="topo-detail-head">
+      <div class="panel-title">Cell Detail</div>
+    </div>
+    <div class="topo-detail-body" id="topo-detail-body">
+      <div class="topo-detail-empty">Select a cell<br>from the table<br>to view details</div>
+    </div>
+  </div>
+</div><!-- /view-topology -->
+</div><!-- /app -->
 
 <script>
 const WS_PORT = 8765;
@@ -743,6 +875,211 @@ function loadSnapshot(data) {
   evts.forEach(e=>allEvents.push(e));
   rebuildFeed();
   if (evts.length>0) showDetail(evts[evts.length-1]);
+  // Load topology data
+  if (data.topology && data.topology.length > 0 && topoData.length === 0) {
+    topoData = data.topology;
+    initTopologyFilters();
+    renderTopologyTable();
+  }
+}
+
+/* ═══════ TOPOLOGY VIEW ═══════════════════════════════════ */
+let topoData = [], topoSortCol = 'cell_id', topoSortAsc = true, topoSelectedCell = null;
+
+// ── Nav pill switching ───
+document.querySelectorAll('.nav-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.nav-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+    const label = pill.textContent.trim().toLowerCase();
+    document.getElementById('view-overview').style.display = label === 'overview' ? '' : 'none';
+    const topoView = document.getElementById('view-topology');
+    if (label === 'topology') {
+      topoView.style.display = '';
+      topoView.classList.add('active');
+    } else {
+      topoView.style.display = 'none';
+      topoView.classList.remove('active');
+    }
+  });
+});
+
+function initTopologyFilters() {
+  const regions = [...new Set(topoData.map(c => c.region))].sort();
+  const vendors = [...new Set(topoData.map(c => c.vendor))].sort();
+  const bands   = [...new Set(topoData.map(c => c.band))].sort();
+  const types   = [...new Set(topoData.map(c => c.type))].sort();
+
+  const regionSel = document.getElementById('topo-region-filter');
+  regions.forEach(r => { const o = document.createElement('option'); o.value = r; o.textContent = r; regionSel.appendChild(o); });
+  const vendorSel = document.getElementById('topo-vendor-filter');
+  vendors.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; vendorSel.appendChild(o); });
+  const bandSel = document.getElementById('topo-band-filter');
+  bands.forEach(b => { const o = document.createElement('option'); o.value = b; o.textContent = b; bandSel.appendChild(o); });
+  const typeSel = document.getElementById('topo-type-filter');
+  types.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; typeSel.appendChild(o); });
+
+  document.getElementById('topo-total').textContent = topoData.length;
+  document.getElementById('topo-active').textContent = topoData.filter(c => c.active).length;
+
+  // Wire up filter events
+  document.getElementById('topo-search').addEventListener('input', renderTopologyTable);
+  document.getElementById('topo-region-filter').addEventListener('change', renderTopologyTable);
+  document.getElementById('topo-vendor-filter').addEventListener('change', renderTopologyTable);
+  document.getElementById('topo-band-filter').addEventListener('change', renderTopologyTable);
+  document.getElementById('topo-type-filter').addEventListener('change', renderTopologyTable);
+  document.getElementById('topo-status-filter').addEventListener('change', renderTopologyTable);
+
+  // Wire up column sorting
+  document.querySelectorAll('#topo-table th[data-col]').forEach(th => {
+    th.addEventListener('click', () => {
+      const col = th.dataset.col;
+      if (topoSortCol === col) topoSortAsc = !topoSortAsc;
+      else { topoSortCol = col; topoSortAsc = true; }
+      document.querySelectorAll('#topo-table th').forEach(h => h.classList.remove('sorted'));
+      th.classList.add('sorted');
+      th.querySelector('.sort-arrow').textContent = topoSortAsc ? '▲' : '▼';
+      renderTopologyTable();
+    });
+  });
+}
+
+function getFilteredTopoCells() {
+  const search = (document.getElementById('topo-search').value || '').toLowerCase();
+  const region = document.getElementById('topo-region-filter').value;
+  const vendor = document.getElementById('topo-vendor-filter').value;
+  const band   = document.getElementById('topo-band-filter').value;
+  const type   = document.getElementById('topo-type-filter').value;
+  const status = document.getElementById('topo-status-filter').value;
+
+  let filtered = topoData.filter(c => {
+    if (search && !c.cell_id.toLowerCase().includes(search) &&
+        !c.site_id.toLowerCase().includes(search) &&
+        !c.region.toLowerCase().includes(search)) return false;
+    if (region && c.region !== region) return false;
+    if (vendor && c.vendor !== vendor) return false;
+    if (band && c.band !== band) return false;
+    if (type && c.type !== type) return false;
+    if (status === 'active' && !c.active) return false;
+    if (status === 'inactive' && c.active) return false;
+    return true;
+  });
+
+  // Sort
+  filtered.sort((a, b) => {
+    let va = a[topoSortCol], vb = b[topoSortCol];
+    if (topoSortCol === 'active') { va = va ? 1 : 0; vb = vb ? 1 : 0; }
+    else if (topoSortCol === 'neighbors') { va = (va||[]).length; vb = (vb||[]).length; }
+    else if (topoSortCol === 'anomaly') {
+      const sevOrder = {critical:0,high:1,medium:2,low:3,normal:4};
+      va = sevOrder[cellStatus[a.cell_id]] ?? 5;
+      vb = sevOrder[cellStatus[b.cell_id]] ?? 5;
+    }
+    else { va = String(va||'').toLowerCase(); vb = String(vb||'').toLowerCase(); }
+    if (va < vb) return topoSortAsc ? -1 : 1;
+    if (va > vb) return topoSortAsc ? 1 : -1;
+    return 0;
+  });
+
+  return filtered;
+}
+
+function renderTopologyTable() {
+  const filtered = getFilteredTopoCells();
+  document.getElementById('topo-shown').textContent = filtered.length;
+  const tbody = document.getElementById('topo-tbody');
+  tbody.innerHTML = '';
+
+  filtered.forEach(cell => {
+    const tr = document.createElement('tr');
+    if (topoSelectedCell === cell.cell_id) tr.classList.add('selected');
+    const sev = cellStatus[cell.cell_id];
+    const sevCol = sev ? sevColor(sev) : 'var(--textdim)';
+    const typeClass = cell.type.toLowerCase().replace(/\s+/g, '-');
+
+    tr.innerHTML =
+      '<td><span class="topo-cell-id">' + cell.cell_id + '</span></td>' +
+      '<td><span class="topo-site">' + cell.site_id + '</span></td>' +
+      '<td class="topo-region">' + cell.region + '</td>' +
+      '<td><span class="topo-vendor ' + cell.vendor.toLowerCase() + '">' + cell.vendor + '</span></td>' +
+      '<td><span class="topo-band">' + cell.band + '</span></td>' +
+      '<td>' + cell.bw + ' MHz</td>' +
+      '<td>' + cell.mimo + '</td>' +
+      '<td>' + cell.slice + '</td>' +
+      '<td><span class="topo-type ' + typeClass + '">' + cell.type + '</span></td>' +
+      '<td><span class="topo-status-dot ' + (cell.active ? 'active' : 'inactive') + '"></span></td>' +
+      '<td>' + (cell.neighbors||[]).length + '</td>' +
+      '<td>' + (sev ? '<span class="topo-sev-dot" style="background:' + sevCol + ';box-shadow:0 0 6px ' + sevCol + '"></span>' : '<span style="color:var(--textdim);font-family:var(--mono);font-size:9px">OK</span>') + '</td>';
+
+    tr.addEventListener('click', () => {
+      topoSelectedCell = cell.cell_id;
+      tbody.querySelectorAll('tr').forEach(r => r.classList.remove('selected'));
+      tr.classList.add('selected');
+      showTopoDetail(cell);
+    });
+    tbody.appendChild(tr);
+  });
+}
+
+function showTopoDetail(cell) {
+  const sev = cellStatus[cell.cell_id];
+  const sevCol = sev ? sevColor(sev) : null;
+  const body = document.getElementById('topo-detail-body');
+
+  const infoItems = [
+    ['Site', cell.site_id],
+    ['Region', cell.region],
+    ['Vendor', '<span class="topo-vendor ' + cell.vendor.toLowerCase() + '">' + cell.vendor + '</span>'],
+    ['NR Band', '<span style="color:var(--cyan)">' + cell.band + '</span>'],
+    ['Bandwidth', cell.bw + ' MHz'],
+    ['MIMO Config', cell.mimo],
+    ['Slice', cell.slice],
+    ['Type', cell.type],
+    ['Latitude', cell.lat.toFixed(5)],
+    ['Longitude', cell.lng.toFixed(5)],
+  ].map(([k,v]) => '<div class="topo-info-item"><div class="topo-info-k">' + k + '</div><div class="topo-info-v">' + v + '</div></div>').join('');
+
+  const neighborsHtml = (cell.neighbors || []).map(nbId => {
+    const nb = topoData.find(c => c.cell_id === nbId);
+    const nbSev = cellStatus[nbId];
+    const nbSevCol = nbSev ? sevColor(nbSev) : null;
+    return '<div class="topo-neighbor" data-nb="' + nbId + '">' +
+      (nbSevCol ? '<span class="topo-sev-dot" style="background:' + nbSevCol + ';box-shadow:0 0 6px ' + nbSevCol + '"></span>' : '<span class="topo-status-dot active" style="width:6px;height:6px"></span>') +
+      '<span class="nb-id">' + nbId + '</span>' +
+      '<span class="nb-region">' + (nb ? nb.region : '') + '</span>' +
+      '</div>';
+  }).join('');
+
+  body.innerHTML =
+    '<div class="topo-cell-header">' +
+      '<span class="topo-cell-big">' + cell.cell_id + '</span>' +
+      '<span class="topo-status-badge ' + (cell.active ? 'active' : 'inactive') + '">' + (cell.active ? 'Active' : 'Inactive') + '</span>' +
+      (sev ? '<span style="font-family:var(--mono);font-size:9px;padding:3px 10px;border-radius:12px;background:' + sevCol + '22;border:1px solid ' + sevCol + '44;color:' + sevCol + ';text-transform:uppercase;letter-spacing:1px">' + sev + '</span>' : '') +
+    '</div>' +
+    '<div class="topo-info-grid">' + infoItems + '</div>' +
+    '<div class="topo-neighbors-title">Neighbor Cells (' + (cell.neighbors||[]).length + ')</div>' +
+    (neighborsHtml || '<div style="font-family:var(--mono);font-size:10px;color:var(--textdim)">No neighbors configured</div>');
+
+  // Click on neighbor to jump to it
+  body.querySelectorAll('.topo-neighbor').forEach(el => {
+    el.addEventListener('click', () => {
+      const nbId = el.dataset.nb;
+      const nbCell = topoData.find(c => c.cell_id === nbId);
+      if (nbCell) {
+        topoSelectedCell = nbId;
+        showTopoDetail(nbCell);
+        // Highlight in table
+        const rows = document.querySelectorAll('#topo-tbody tr');
+        rows.forEach(r => r.classList.remove('selected'));
+        rows.forEach(r => {
+          if (r.querySelector('.topo-cell-id')?.textContent === nbId) {
+            r.classList.add('selected');
+            r.scrollIntoView({behavior:'smooth', block:'center'});
+          }
+        });
+      }
+    });
+  });
 }
 
 function connect() {
