@@ -1,0 +1,4442 @@
+[
+  {
+    "seq": 173,
+    "score": 0.5049,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 7.2,
+      "rsrp": -81.74,
+      "throughput": 27.74,
+      "latency": 97.0,
+      "mos": 2.5
+    },
+    "timestamp": "2026-04-13T23:09:47.907854"
+  },
+  {
+    "seq": 272,
+    "score": 0.5054,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 3.55,
+      "rsrp": -91.72,
+      "throughput": 106.96,
+      "latency": 127.0,
+      "mos": 2.1
+    },
+    "timestamp": "2026-04-13T23:09:48.892244"
+  },
+  {
+    "seq": 273,
+    "score": 0.5039,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 3.45,
+      "rsrp": -91.62,
+      "throughput": 105.87,
+      "latency": 127.0,
+      "mos": 2.1
+    },
+    "timestamp": "2026-04-13T23:09:48.900229"
+  },
+  {
+    "seq": 410,
+    "score": 0.5178,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.6,
+      "rsrp": -82.44,
+      "throughput": 24.09,
+      "latency": 61.0,
+      "mos": 3.0
+    },
+    "timestamp": "2026-04-13T23:09:50.294658"
+  },
+  {
+    "seq": 537,
+    "score": 0.5146,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.9,
+      "rsrp": -82.33,
+      "throughput": 24.4,
+      "latency": 72.0,
+      "mos": 2.85
+    },
+    "timestamp": "2026-04-13T23:09:51.413006"
+  },
+  {
+    "seq": 600,
+    "score": 0.5141,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.08,
+      "rsrp": -80.68,
+      "throughput": 22.97,
+      "latency": 89.0,
+      "mos": 2.64
+    },
+    "timestamp": "2026-04-13T23:09:52.011667"
+  },
+  {
+    "seq": 601,
+    "score": 0.5079,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.53,
+      "rsrp": -79.99,
+      "throughput": 29.35,
+      "latency": 83.0,
+      "mos": 2.84
+    },
+    "timestamp": "2026-04-13T23:09:52.020688"
+  },
+  {
+    "seq": 602,
+    "score": 0.5169,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 11.21,
+      "rsrp": -76.77,
+      "throughput": 30.78,
+      "latency": 66.5,
+      "mos": 3.08
+    },
+    "timestamp": "2026-04-13T23:09:52.030976"
+  },
+  {
+    "seq": 740,
+    "score": 0.5029,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.09,
+      "rsrp": -84.91,
+      "throughput": 22.1,
+      "latency": 90.5,
+      "mos": 2.46
+    },
+    "timestamp": "2026-04-13T23:09:53.455038"
+  },
+  {
+    "seq": 741,
+    "score": 0.5027,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.9,
+      "rsrp": -85.14,
+      "throughput": 15.67,
+      "latency": 86.5,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:09:53.463548"
+  },
+  {
+    "seq": 742,
+    "score": 0.5114,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.45,
+      "rsrp": -86.01,
+      "throughput": 17.52,
+      "latency": 80.5,
+      "mos": 2.58
+    },
+    "timestamp": "2026-04-13T23:09:53.474117"
+  },
+  {
+    "seq": 1083,
+    "score": 0.5007,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.95,
+      "rsrp": -81.31,
+      "throughput": 114.27,
+      "latency": 84.0,
+      "mos": 2.44
+    },
+    "timestamp": "2026-04-13T23:09:57.043056"
+  },
+  {
+    "seq": 1297,
+    "score": 0.5014,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.46,
+      "rsrp": -83.28,
+      "throughput": 18.72,
+      "latency": 122.0,
+      "mos": 2.39
+    },
+    "timestamp": "2026-04-13T23:09:58.952875"
+  },
+  {
+    "seq": 1578,
+    "score": 0.5027,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.04,
+      "rsrp": -83.91,
+      "throughput": 29.72,
+      "latency": 99.0,
+      "mos": 2.38
+    },
+    "timestamp": "2026-04-13T23:10:01.538801"
+  },
+  {
+    "seq": 1670,
+    "score": 0.518,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.5,
+      "rsrp": -87.47,
+      "throughput": 101.71,
+      "latency": 64.5,
+      "mos": 2.86
+    },
+    "timestamp": "2026-04-13T23:10:02.410558"
+  },
+  {
+    "seq": 1837,
+    "score": 0.5103,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.39,
+      "rsrp": -79.63,
+      "throughput": 29.65,
+      "latency": 81.5,
+      "mos": 2.72
+    },
+    "timestamp": "2026-04-13T23:10:03.877900"
+  },
+  {
+    "seq": 1867,
+    "score": 0.5035,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.75,
+      "rsrp": -81.63,
+      "throughput": 117.64,
+      "latency": 77.5,
+      "mos": 2.99
+    },
+    "timestamp": "2026-04-13T23:10:04.142132"
+  },
+  {
+    "seq": 1871,
+    "score": 0.5018,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 4.5,
+      "rsrp": -87.6,
+      "throughput": 80.74,
+      "latency": 92.5,
+      "mos": 2.34
+    },
+    "timestamp": "2026-04-13T23:10:04.184416"
+  },
+  {
+    "seq": 1921,
+    "score": 0.5201,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.33,
+      "rsrp": -85.47,
+      "throughput": 33.44,
+      "latency": 111.0,
+      "mos": 2.58
+    },
+    "timestamp": "2026-04-13T23:10:04.608033"
+  },
+  {
+    "seq": 1950,
+    "score": 0.5137,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 11.35,
+      "rsrp": -74.75,
+      "throughput": 32.34,
+      "latency": 53.5,
+      "mos": 3.18
+    },
+    "timestamp": "2026-04-13T23:10:04.857761"
+  },
+  {
+    "seq": 2035,
+    "score": 0.5029,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.7,
+      "rsrp": -79.98,
+      "throughput": 168.2,
+      "latency": 98.5,
+      "mos": 2.58
+    },
+    "timestamp": "2026-04-13T23:10:05.599722"
+  },
+  {
+    "seq": 2036,
+    "score": 0.5107,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.3,
+      "rsrp": -85.6,
+      "throughput": 85.31,
+      "latency": 94.5,
+      "mos": 2.65
+    },
+    "timestamp": "2026-04-13T23:10:05.607724"
+  },
+  {
+    "seq": 2038,
+    "score": 0.5053,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.0,
+      "rsrp": -89.32,
+      "throughput": 20.76,
+      "latency": 77.0,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:10:05.623413"
+  },
+  {
+    "seq": 2039,
+    "score": 0.505,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.65,
+      "rsrp": -85.22,
+      "throughput": 21.44,
+      "latency": 72.0,
+      "mos": 2.67
+    },
+    "timestamp": "2026-04-13T23:10:05.632873"
+  },
+  {
+    "seq": 2040,
+    "score": 0.5052,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.25,
+      "rsrp": -87.07,
+      "throughput": 27.52,
+      "latency": 88.5,
+      "mos": 2.43
+    },
+    "timestamp": "2026-04-13T23:10:05.639390"
+  },
+  {
+    "seq": 2496,
+    "score": 0.5043,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.82,
+      "rsrp": -89.34,
+      "throughput": 18.84,
+      "latency": 96.5,
+      "mos": 2.47
+    },
+    "timestamp": "2026-04-13T23:10:09.626688"
+  },
+  {
+    "seq": 2497,
+    "score": 0.5115,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.77,
+      "rsrp": -89.13,
+      "throughput": 20.15,
+      "latency": 92.5,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:10:09.633419"
+  },
+  {
+    "seq": 2547,
+    "score": 0.5128,
+    "severity": "LOW",
+    "type": "interference",
+    "causes": [
+      "Adjacent channel interference",
+      "External interference sources",
+      "PCI conflicts"
+    ],
+    "solutions": [
+      "Optimize PCI allocation",
+      "Implement ICIC",
+      "RF retuning"
+    ],
+    "metrics": {
+      "sinr": 9.0,
+      "rsrp": -83.69,
+      "throughput": 21.14,
+      "latency": 64.5,
+      "mos": 2.86
+    },
+    "timestamp": "2026-04-13T23:10:10.046873"
+  },
+  {
+    "seq": 2548,
+    "score": 0.5025,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.02,
+      "rsrp": -86.03,
+      "throughput": 20.55,
+      "latency": 92.5,
+      "mos": 2.52
+    },
+    "timestamp": "2026-04-13T23:10:10.056892"
+  },
+  {
+    "seq": 2549,
+    "score": 0.518,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.77,
+      "rsrp": -83.93,
+      "throughput": 26.24,
+      "latency": 78.5,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:10:10.064399"
+  },
+  {
+    "seq": 2741,
+    "score": 0.5067,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.85,
+      "rsrp": -92.91,
+      "throughput": 17.27,
+      "latency": 78.0,
+      "mos": 2.48
+    },
+    "timestamp": "2026-04-13T23:10:11.691890"
+  },
+  {
+    "seq": 2751,
+    "score": 0.5031,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.55,
+      "rsrp": -93.17,
+      "throughput": 84.06,
+      "latency": 93.0,
+      "mos": 2.57
+    },
+    "timestamp": "2026-04-13T23:10:11.818550"
+  },
+  {
+    "seq": 2752,
+    "score": 0.5097,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 9.5,
+      "rsrp": -92.08,
+      "throughput": 24.53,
+      "latency": 69.0,
+      "mos": 2.85
+    },
+    "timestamp": "2026-04-13T23:10:11.836216"
+  },
+  {
+    "seq": 2753,
+    "score": 0.5028,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.53,
+      "rsrp": -98.06,
+      "throughput": 21.72,
+      "latency": 109.0,
+      "mos": 2.36
+    },
+    "timestamp": "2026-04-13T23:10:11.844255"
+  },
+  {
+    "seq": 2857,
+    "score": 0.5018,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.66,
+      "rsrp": -88.13,
+      "throughput": 77.99,
+      "latency": 85.0,
+      "mos": 2.55
+    },
+    "timestamp": "2026-04-13T23:10:12.730213"
+  },
+  {
+    "seq": 2895,
+    "score": 0.5122,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 10.9,
+      "rsrp": -81.87,
+      "throughput": 26.34,
+      "latency": 75.0,
+      "mos": 3.06
+    },
+    "timestamp": "2026-04-13T23:10:13.050087"
+  },
+  {
+    "seq": 2994,
+    "score": 0.5058,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.95,
+      "rsrp": -86.85,
+      "throughput": 21.62,
+      "latency": 63.5,
+      "mos": 2.78
+    },
+    "timestamp": "2026-04-13T23:10:13.929763"
+  },
+  {
+    "seq": 2995,
+    "score": 0.5145,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.2,
+      "rsrp": -91.36,
+      "throughput": 21.86,
+      "latency": 96.0,
+      "mos": 2.46
+    },
+    "timestamp": "2026-04-13T23:10:13.938773"
+  },
+  {
+    "seq": 3091,
+    "score": 0.5003,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.37,
+      "rsrp": -86.64,
+      "throughput": 111.77,
+      "latency": 79.0,
+      "mos": 2.57
+    },
+    "timestamp": "2026-04-13T23:10:14.796242"
+  },
+  {
+    "seq": 3227,
+    "score": 0.5035,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.08,
+      "rsrp": -77.81,
+      "throughput": 31.75,
+      "latency": 71.5,
+      "mos": 2.79
+    },
+    "timestamp": "2026-04-13T23:10:15.928766"
+  },
+  {
+    "seq": 3294,
+    "score": 0.51,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.04,
+      "rsrp": -86.36,
+      "throughput": 98.17,
+      "latency": 85.0,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:10:16.495504"
+  },
+  {
+    "seq": 3528,
+    "score": 0.5144,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.15,
+      "rsrp": -80.2,
+      "throughput": 34.54,
+      "latency": 66.5,
+      "mos": 2.9
+    },
+    "timestamp": "2026-04-13T23:10:18.528817"
+  },
+  {
+    "seq": 3529,
+    "score": 0.5056,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.1,
+      "rsrp": -82.48,
+      "throughput": 30.04,
+      "latency": 70.0,
+      "mos": 2.78
+    },
+    "timestamp": "2026-04-13T23:10:18.538623"
+  },
+  {
+    "seq": 3530,
+    "score": 0.5191,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.05,
+      "rsrp": -83.71,
+      "throughput": 30.24,
+      "latency": 67.5,
+      "mos": 2.68
+    },
+    "timestamp": "2026-04-13T23:10:18.546654"
+  },
+  {
+    "seq": 3612,
+    "score": 0.5087,
+    "severity": "LOW",
+    "type": "interference",
+    "causes": [
+      "Adjacent channel interference",
+      "External interference sources",
+      "PCI conflicts"
+    ],
+    "solutions": [
+      "Optimize PCI allocation",
+      "Implement ICIC",
+      "RF retuning"
+    ],
+    "metrics": {
+      "sinr": 9.47,
+      "rsrp": -90.84,
+      "throughput": 58.6,
+      "latency": 87.5,
+      "mos": 2.68
+    },
+    "timestamp": "2026-04-13T23:10:19.265126"
+  },
+  {
+    "seq": 3616,
+    "score": 0.5074,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.55,
+      "rsrp": -81.74,
+      "throughput": 22.62,
+      "latency": 86.5,
+      "mos": 2.56
+    },
+    "timestamp": "2026-04-13T23:10:19.298746"
+  },
+  {
+    "seq": 3770,
+    "score": 0.5006,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.27,
+      "rsrp": -86.2,
+      "throughput": 107.53,
+      "latency": 84.0,
+      "mos": 2.62
+    },
+    "timestamp": "2026-04-13T23:10:20.677787"
+  },
+  {
+    "seq": 3772,
+    "score": 0.5124,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.54,
+      "rsrp": -84.96,
+      "throughput": 25.71,
+      "latency": 85.0,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:10:20.692373"
+  },
+  {
+    "seq": 3806,
+    "score": 0.511,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.03,
+      "rsrp": -85.74,
+      "throughput": 14.31,
+      "latency": 84.0,
+      "mos": 2.47
+    },
+    "timestamp": "2026-04-13T23:10:20.990654"
+  },
+  {
+    "seq": 3807,
+    "score": 0.5017,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.73,
+      "rsrp": -85.38,
+      "throughput": 11.29,
+      "latency": 110.5,
+      "mos": 2.37
+    },
+    "timestamp": "2026-04-13T23:10:20.999672"
+  },
+  {
+    "seq": 3969,
+    "score": 0.5139,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.8,
+      "rsrp": -83.45,
+      "throughput": 25.06,
+      "latency": 95.0,
+      "mos": 2.45
+    },
+    "timestamp": "2026-04-13T23:10:22.414399"
+  },
+  {
+    "seq": 4112,
+    "score": 0.5173,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.2,
+      "rsrp": -86.83,
+      "throughput": 22.68,
+      "latency": 73.0,
+      "mos": 2.64
+    },
+    "timestamp": "2026-04-13T23:10:23.617672"
+  },
+  {
+    "seq": 4113,
+    "score": 0.5062,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.25,
+      "rsrp": -85.36,
+      "throughput": 22.99,
+      "latency": 80.5,
+      "mos": 2.42
+    },
+    "timestamp": "2026-04-13T23:10:23.625746"
+  },
+  {
+    "seq": 4114,
+    "score": 0.519,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 4.85,
+      "rsrp": -86.04,
+      "throughput": 23.48,
+      "latency": 100.5,
+      "mos": 2.22
+    },
+    "timestamp": "2026-04-13T23:10:23.633779"
+  },
+  {
+    "seq": 4348,
+    "score": 0.5033,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.55,
+      "rsrp": -79.93,
+      "throughput": 108.54,
+      "latency": 89.0,
+      "mos": 2.46
+    },
+    "timestamp": "2026-04-13T23:10:25.651182"
+  },
+  {
+    "seq": 4349,
+    "score": 0.5115,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.85,
+      "rsrp": -79.35,
+      "throughput": 111.09,
+      "latency": 81.5,
+      "mos": 2.65
+    },
+    "timestamp": "2026-04-13T23:10:25.661572"
+  },
+  {
+    "seq": 4397,
+    "score": 0.5021,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.0,
+      "rsrp": -86.04,
+      "throughput": 31.38,
+      "latency": 100.0,
+      "mos": 2.56
+    },
+    "timestamp": "2026-04-13T23:10:26.055282"
+  },
+  {
+    "seq": 4694,
+    "score": 0.5027,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.14,
+      "rsrp": -89.4,
+      "throughput": 26.78,
+      "latency": 99.0,
+      "mos": 2.61
+    },
+    "timestamp": "2026-04-13T23:10:28.642623"
+  },
+  {
+    "seq": 4695,
+    "score": 0.5141,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.54,
+      "rsrp": -89.52,
+      "throughput": 32.1,
+      "latency": 96.5,
+      "mos": 2.67
+    },
+    "timestamp": "2026-04-13T23:10:28.651496"
+  },
+  {
+    "seq": 5130,
+    "score": 0.5107,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 5.75,
+      "rsrp": -87.14,
+      "throughput": 17.81,
+      "latency": 119.0,
+      "mos": 2.41
+    },
+    "timestamp": "2026-04-13T23:10:32.374839"
+  },
+  {
+    "seq": 5131,
+    "score": 0.5109,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 6.36,
+      "rsrp": -81.55,
+      "throughput": 17.38,
+      "latency": 104.0,
+      "mos": 2.41
+    },
+    "timestamp": "2026-04-13T23:10:32.382379"
+  },
+  {
+    "seq": 5241,
+    "score": 0.5043,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.6,
+      "rsrp": -80.66,
+      "throughput": 26.7,
+      "latency": 92.5,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:10:33.367586"
+  },
+  {
+    "seq": 5433,
+    "score": 0.5161,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.65,
+      "rsrp": -81.75,
+      "throughput": 37.11,
+      "latency": 79.5,
+      "mos": 2.66
+    },
+    "timestamp": "2026-04-13T23:10:35.029760"
+  },
+  {
+    "seq": 5633,
+    "score": 0.5033,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.55,
+      "rsrp": -77.06,
+      "throughput": 111.77,
+      "latency": 89.0,
+      "mos": 2.85
+    },
+    "timestamp": "2026-04-13T23:10:36.811750"
+  },
+  {
+    "seq": 5635,
+    "score": 0.5108,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.45,
+      "rsrp": -81.19,
+      "throughput": 29.55,
+      "latency": 67.5,
+      "mos": 2.83
+    },
+    "timestamp": "2026-04-13T23:10:36.829459"
+  },
+  {
+    "seq": 6227,
+    "score": 0.5145,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.15,
+      "rsrp": -85.08,
+      "throughput": 48.67,
+      "latency": 76.5,
+      "mos": 2.67
+    },
+    "timestamp": "2026-04-13T23:10:42.081486"
+  },
+  {
+    "seq": 6239,
+    "score": 0.5201,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.5,
+      "rsrp": -87.22,
+      "throughput": 34.72,
+      "latency": 69.0,
+      "mos": 2.86
+    },
+    "timestamp": "2026-04-13T23:10:42.191835"
+  },
+  {
+    "seq": 6240,
+    "score": 0.516,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.65,
+      "rsrp": -90.01,
+      "throughput": 98.35,
+      "latency": 72.5,
+      "mos": 2.74
+    },
+    "timestamp": "2026-04-13T23:10:42.200847"
+  },
+  {
+    "seq": 6244,
+    "score": 0.5059,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.49,
+      "rsrp": -83.37,
+      "throughput": 77.32,
+      "latency": 86.5,
+      "mos": 2.55
+    },
+    "timestamp": "2026-04-13T23:10:42.232526"
+  },
+  {
+    "seq": 6245,
+    "score": 0.505,
+    "severity": "LOW",
+    "type": "interference",
+    "causes": [
+      "Adjacent channel interference",
+      "External interference sources",
+      "PCI conflicts"
+    ],
+    "solutions": [
+      "Optimize PCI allocation",
+      "Implement ICIC",
+      "RF retuning"
+    ],
+    "metrics": {
+      "sinr": 9.19,
+      "rsrp": -81.02,
+      "throughput": 21.99,
+      "latency": 67.5,
+      "mos": 2.85
+    },
+    "timestamp": "2026-04-13T23:10:42.242875"
+  },
+  {
+    "seq": 6388,
+    "score": 0.5048,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.56,
+      "rsrp": -82.13,
+      "throughput": 27.01,
+      "latency": 87.0,
+      "mos": 2.61
+    },
+    "timestamp": "2026-04-13T23:10:43.484978"
+  },
+  {
+    "seq": 7899,
+    "score": 0.513,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.4,
+      "rsrp": -82.59,
+      "throughput": 22.29,
+      "latency": 82.0,
+      "mos": 2.82
+    },
+    "timestamp": "2026-04-13T23:10:56.617776"
+  },
+  {
+    "seq": 7907,
+    "score": 0.5101,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.55,
+      "rsrp": -84.99,
+      "throughput": 65.75,
+      "latency": 86.5,
+      "mos": 2.8
+    },
+    "timestamp": "2026-04-13T23:10:56.684413"
+  },
+  {
+    "seq": 7910,
+    "score": 0.507,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.45,
+      "rsrp": -87.76,
+      "throughput": 25.46,
+      "latency": 78.5,
+      "mos": 2.56
+    },
+    "timestamp": "2026-04-13T23:10:56.714540"
+  },
+  {
+    "seq": 7931,
+    "score": 0.5088,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.7,
+      "rsrp": -85.84,
+      "throughput": 25.68,
+      "latency": 87.0,
+      "mos": 2.66
+    },
+    "timestamp": "2026-04-13T23:10:56.892217"
+  },
+  {
+    "seq": 7932,
+    "score": 0.5149,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.29,
+      "rsrp": -92.01,
+      "throughput": 16.0,
+      "latency": 110.0,
+      "mos": 2.29
+    },
+    "timestamp": "2026-04-13T23:10:56.902120"
+  },
+  {
+    "seq": 8005,
+    "score": 0.5297,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.77,
+      "rsrp": -92.68,
+      "throughput": 113.27,
+      "latency": 77.0,
+      "mos": 2.53
+    },
+    "timestamp": "2026-04-13T23:10:57.526518"
+  },
+  {
+    "seq": 8076,
+    "score": 0.525,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.55,
+      "rsrp": -77.29,
+      "throughput": 118.18,
+      "latency": 82.0,
+      "mos": 2.56
+    },
+    "timestamp": "2026-04-13T23:10:58.119677"
+  },
+  {
+    "seq": 8097,
+    "score": 0.5212,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.9,
+      "rsrp": -82.68,
+      "throughput": 25.97,
+      "latency": 82.5,
+      "mos": 2.87
+    },
+    "timestamp": "2026-04-13T23:10:58.291283"
+  },
+  {
+    "seq": 9080,
+    "score": 0.5008,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.06,
+      "rsrp": -86.54,
+      "throughput": 29.99,
+      "latency": 95.5,
+      "mos": 2.73
+    },
+    "timestamp": "2026-04-13T23:11:06.873441"
+  },
+  {
+    "seq": 9364,
+    "score": 0.5181,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.9,
+      "rsrp": -83.62,
+      "throughput": 33.82,
+      "latency": 118.5,
+      "mos": 2.79
+    },
+    "timestamp": "2026-04-13T23:11:09.319445"
+  },
+  {
+    "seq": 9561,
+    "score": 0.5294,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.65,
+      "rsrp": -77.51,
+      "throughput": 27.28,
+      "latency": 56.5,
+      "mos": 3.0
+    },
+    "timestamp": "2026-04-13T23:11:11.011764"
+  },
+  {
+    "seq": 9562,
+    "score": 0.5188,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.15,
+      "rsrp": -79.57,
+      "throughput": 28.1,
+      "latency": 57.5,
+      "mos": 2.94
+    },
+    "timestamp": "2026-04-13T23:11:11.019803"
+  },
+  {
+    "seq": 9563,
+    "score": 0.5201,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.49,
+      "rsrp": -82.37,
+      "throughput": 25.39,
+      "latency": 81.5,
+      "mos": 2.51
+    },
+    "timestamp": "2026-04-13T23:11:11.027817"
+  },
+  {
+    "seq": 9705,
+    "score": 0.5201,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.43,
+      "rsrp": -86.82,
+      "throughput": 27.09,
+      "latency": 91.5,
+      "mos": 2.82
+    },
+    "timestamp": "2026-04-13T23:11:12.242860"
+  },
+  {
+    "seq": 9706,
+    "score": 0.5073,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.85,
+      "rsrp": -84.0,
+      "throughput": 24.25,
+      "latency": 76.5,
+      "mos": 2.82
+    },
+    "timestamp": "2026-04-13T23:11:12.252056"
+  },
+  {
+    "seq": 9707,
+    "score": 0.5064,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.55,
+      "rsrp": -85.13,
+      "throughput": 123.73,
+      "latency": 76.5,
+      "mos": 2.82
+    },
+    "timestamp": "2026-04-13T23:11:12.262574"
+  },
+  {
+    "seq": 10116,
+    "score": 0.5007,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.25,
+      "rsrp": -81.6,
+      "throughput": 28.49,
+      "latency": 121.0,
+      "mos": 2.49
+    },
+    "timestamp": "2026-04-13T23:11:15.815015"
+  },
+  {
+    "seq": 10118,
+    "score": 0.5086,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.25,
+      "rsrp": -84.42,
+      "throughput": 31.14,
+      "latency": 102.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:11:15.831086"
+  },
+  {
+    "seq": 10202,
+    "score": 0.501,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.48,
+      "rsrp": -81.5,
+      "throughput": 111.86,
+      "latency": 74.0,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:11:16.549412"
+  },
+  {
+    "seq": 10610,
+    "score": 0.515,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 4.19,
+      "rsrp": -86.17,
+      "throughput": 68.54,
+      "latency": 102.5,
+      "mos": 2.25
+    },
+    "timestamp": "2026-04-13T23:11:20.053263"
+  },
+  {
+    "seq": 10611,
+    "score": 0.5121,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.03,
+      "rsrp": -84.45,
+      "throughput": 66.34,
+      "latency": 88.5,
+      "mos": 2.42
+    },
+    "timestamp": "2026-04-13T23:11:20.063400"
+  },
+  {
+    "seq": 10949,
+    "score": 0.5067,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.1,
+      "rsrp": -81.63,
+      "throughput": 119.6,
+      "latency": 77.0,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:11:22.925819"
+  },
+  {
+    "seq": 11697,
+    "score": 0.5046,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.47,
+      "rsrp": -85.15,
+      "throughput": 20.78,
+      "latency": 78.5,
+      "mos": 2.51
+    },
+    "timestamp": "2026-04-13T23:11:29.409491"
+  },
+  {
+    "seq": 12104,
+    "score": 0.5019,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.82,
+      "rsrp": -86.97,
+      "throughput": 15.8,
+      "latency": 96.5,
+      "mos": 2.44
+    },
+    "timestamp": "2026-04-13T23:11:32.941594"
+  },
+  {
+    "seq": 12105,
+    "score": 0.5019,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.75,
+      "rsrp": -83.08,
+      "throughput": 17.11,
+      "latency": 84.0,
+      "mos": 2.6
+    },
+    "timestamp": "2026-04-13T23:11:32.951455"
+  },
+  {
+    "seq": 12106,
+    "score": 0.5136,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.35,
+      "rsrp": -81.18,
+      "throughput": 21.97,
+      "latency": 91.5,
+      "mos": 2.41
+    },
+    "timestamp": "2026-04-13T23:11:32.957961"
+  },
+  {
+    "seq": 12338,
+    "score": 0.5081,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.07,
+      "rsrp": -86.78,
+      "throughput": 27.37,
+      "latency": 70.0,
+      "mos": 2.61
+    },
+    "timestamp": "2026-04-13T23:11:34.965335"
+  },
+  {
+    "seq": 12340,
+    "score": 0.5012,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.59,
+      "rsrp": -89.21,
+      "throughput": 27.65,
+      "latency": 76.5,
+      "mos": 2.64
+    },
+    "timestamp": "2026-04-13T23:11:34.982572"
+  },
+  {
+    "seq": 12414,
+    "score": 0.5269,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.4,
+      "rsrp": -87.33,
+      "throughput": 21.44,
+      "latency": 82.5,
+      "mos": 2.47
+    },
+    "timestamp": "2026-04-13T23:11:35.602289"
+  },
+  {
+    "seq": 12852,
+    "score": 0.5141,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.25,
+      "rsrp": -82.73,
+      "throughput": 21.62,
+      "latency": 70.0,
+      "mos": 2.78
+    },
+    "timestamp": "2026-04-13T23:11:39.390844"
+  },
+  {
+    "seq": 12853,
+    "score": 0.5211,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.6,
+      "rsrp": -86.11,
+      "throughput": 22.48,
+      "latency": 80.0,
+      "mos": 2.53
+    },
+    "timestamp": "2026-04-13T23:11:39.398360"
+  },
+  {
+    "seq": 12854,
+    "score": 0.5161,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.45,
+      "rsrp": -87.65,
+      "throughput": 20.4,
+      "latency": 90.0,
+      "mos": 2.43
+    },
+    "timestamp": "2026-04-13T23:11:39.408021"
+  },
+  {
+    "seq": 13295,
+    "score": 0.5089,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.85,
+      "rsrp": -88.95,
+      "throughput": 30.55,
+      "latency": 120.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:11:43.164785"
+  },
+  {
+    "seq": 13296,
+    "score": 0.5099,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.0,
+      "rsrp": -90.5,
+      "throughput": 26.94,
+      "latency": 120.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:11:43.174813"
+  },
+  {
+    "seq": 13297,
+    "score": 0.5192,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.5,
+      "rsrp": -87.04,
+      "throughput": 25.67,
+      "latency": 76.0,
+      "mos": 2.8
+    },
+    "timestamp": "2026-04-13T23:11:43.181325"
+  },
+  {
+    "seq": 13326,
+    "score": 0.505,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.75,
+      "rsrp": -83.25,
+      "throughput": 38.73,
+      "latency": 101.5,
+      "mos": 2.72
+    },
+    "timestamp": "2026-04-13T23:11:43.424979"
+  },
+  {
+    "seq": 13343,
+    "score": 0.5212,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.91,
+      "rsrp": -86.97,
+      "throughput": 27.96,
+      "latency": 82.5,
+      "mos": 2.66
+    },
+    "timestamp": "2026-04-13T23:11:43.563159"
+  },
+  {
+    "seq": 13480,
+    "score": 0.5017,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.67,
+      "rsrp": -81.8,
+      "throughput": 119.59,
+      "latency": 83.0,
+      "mos": 2.67
+    },
+    "timestamp": "2026-04-13T23:11:44.746378"
+  },
+  {
+    "seq": 13645,
+    "score": 0.5161,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.57,
+      "rsrp": -93.57,
+      "throughput": 184.59,
+      "latency": 125.5,
+      "mos": 2.27
+    },
+    "timestamp": "2026-04-13T23:11:46.144201"
+  },
+  {
+    "seq": 13742,
+    "score": 0.5026,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 7.05,
+      "rsrp": -87.74,
+      "throughput": 30.93,
+      "latency": 90.5,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:11:47.025711"
+  },
+  {
+    "seq": 14813,
+    "score": 0.5077,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.0,
+      "rsrp": -79.56,
+      "throughput": 16.31,
+      "latency": 54.5,
+      "mos": 2.94
+    },
+    "timestamp": "2026-04-13T23:11:56.260327"
+  },
+  {
+    "seq": 14814,
+    "score": 0.5091,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.2,
+      "rsrp": -82.24,
+      "throughput": 24.82,
+      "latency": 64.5,
+      "mos": 2.84
+    },
+    "timestamp": "2026-04-13T23:11:56.267843"
+  },
+  {
+    "seq": 14815,
+    "score": 0.5137,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.57,
+      "rsrp": -87.07,
+      "throughput": 22.0,
+      "latency": 110.0,
+      "mos": 2.44
+    },
+    "timestamp": "2026-04-13T23:11:56.276405"
+  },
+  {
+    "seq": 15671,
+    "score": 0.5164,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.43,
+      "rsrp": -79.83,
+      "throughput": 30.09,
+      "latency": 74.0,
+      "mos": 2.86
+    },
+    "timestamp": "2026-04-13T23:12:03.586854"
+  },
+  {
+    "seq": 15672,
+    "score": 0.5187,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.88,
+      "rsrp": -79.56,
+      "throughput": 27.65,
+      "latency": 83.0,
+      "mos": 2.67
+    },
+    "timestamp": "2026-04-13T23:12:03.594686"
+  },
+  {
+    "seq": 15901,
+    "score": 0.5011,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.36,
+      "rsrp": -80.74,
+      "throughput": 27.19,
+      "latency": 77.5,
+      "mos": 2.76
+    },
+    "timestamp": "2026-04-13T23:12:05.791661"
+  },
+  {
+    "seq": 16011,
+    "score": 0.5008,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.9,
+      "rsrp": -79.99,
+      "throughput": 23.07,
+      "latency": 90.5,
+      "mos": 2.48
+    },
+    "timestamp": "2026-04-13T23:12:06.707903"
+  },
+  {
+    "seq": 16012,
+    "score": 0.5045,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.15,
+      "rsrp": -81.95,
+      "throughput": 24.03,
+      "latency": 110.5,
+      "mos": 2.28
+    },
+    "timestamp": "2026-04-13T23:12:06.716447"
+  },
+  {
+    "seq": 16611,
+    "score": 0.5052,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 10.67,
+      "rsrp": -83.1,
+      "throughput": 27.31,
+      "latency": 81.5,
+      "mos": 3.06
+    },
+    "timestamp": "2026-04-13T23:12:11.851504"
+  },
+  {
+    "seq": 16613,
+    "score": 0.5027,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.27,
+      "rsrp": -90.02,
+      "throughput": 22.32,
+      "latency": 99.0,
+      "mos": 2.61
+    },
+    "timestamp": "2026-04-13T23:12:11.868759"
+  },
+  {
+    "seq": 16615,
+    "score": 0.5047,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.22,
+      "rsrp": -87.82,
+      "throughput": 23.19,
+      "latency": 80.0,
+      "mos": 2.53
+    },
+    "timestamp": "2026-04-13T23:12:11.884921"
+  },
+  {
+    "seq": 16776,
+    "score": 0.5185,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.5,
+      "rsrp": -79.14,
+      "throughput": 55.79,
+      "latency": 79.0,
+      "mos": 2.74
+    },
+    "timestamp": "2026-04-13T23:12:13.298384"
+  },
+  {
+    "seq": 16777,
+    "score": 0.5076,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.95,
+      "rsrp": -79.72,
+      "throughput": 52.12,
+      "latency": 84.5,
+      "mos": 2.66
+    },
+    "timestamp": "2026-04-13T23:12:13.308436"
+  },
+  {
+    "seq": 16778,
+    "score": 0.5251,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.91,
+      "rsrp": -76.32,
+      "throughput": 33.79,
+      "latency": 64.0,
+      "mos": 2.97
+    },
+    "timestamp": "2026-04-13T23:12:13.316143"
+  },
+  {
+    "seq": 16787,
+    "score": 0.5004,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.18,
+      "rsrp": -86.09,
+      "throughput": 120.03,
+      "latency": 84.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:12:13.395680"
+  },
+  {
+    "seq": 16813,
+    "score": 0.5179,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.88,
+      "rsrp": -85.77,
+      "throughput": 31.06,
+      "latency": 98.0,
+      "mos": 2.87
+    },
+    "timestamp": "2026-04-13T23:12:13.618578"
+  },
+  {
+    "seq": 16814,
+    "score": 0.5138,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 10.18,
+      "rsrp": -82.08,
+      "throughput": 33.3,
+      "latency": 95.5,
+      "mos": 2.93
+    },
+    "timestamp": "2026-04-13T23:12:13.628591"
+  },
+  {
+    "seq": 16815,
+    "score": 0.5123,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 10.73,
+      "rsrp": -78.42,
+      "throughput": 36.22,
+      "latency": 96.5,
+      "mos": 3.1
+    },
+    "timestamp": "2026-04-13T23:12:13.636172"
+  },
+  {
+    "seq": 17519,
+    "score": 0.5043,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.77,
+      "rsrp": -82.95,
+      "throughput": 142.53,
+      "latency": 122.0,
+      "mos": 2.44
+    },
+    "timestamp": "2026-04-13T23:12:19.956271"
+  },
+  {
+    "seq": 17598,
+    "score": 0.5148,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.31,
+      "rsrp": -81.95,
+      "throughput": 11.07,
+      "latency": 89.5,
+      "mos": 2.57
+    },
+    "timestamp": "2026-04-13T23:12:20.687659"
+  },
+  {
+    "seq": 18176,
+    "score": 0.5013,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.23,
+      "rsrp": -87.44,
+      "throughput": 22.93,
+      "latency": 118.5,
+      "mos": 2.37
+    },
+    "timestamp": "2026-04-13T23:12:25.977772"
+  },
+  {
+    "seq": 18358,
+    "score": 0.5234,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.62,
+      "rsrp": -84.9,
+      "throughput": 12.73,
+      "latency": 60.5,
+      "mos": 2.77
+    },
+    "timestamp": "2026-04-13T23:12:27.571144"
+  },
+  {
+    "seq": 18359,
+    "score": 0.5067,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.3,
+      "rsrp": -86.12,
+      "throughput": 90.62,
+      "latency": 96.0,
+      "mos": 2.46
+    },
+    "timestamp": "2026-04-13T23:12:27.580887"
+  },
+  {
+    "seq": 18360,
+    "score": 0.5189,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.25,
+      "rsrp": -86.53,
+      "throughput": 98.44,
+      "latency": 88.5,
+      "mos": 2.64
+    },
+    "timestamp": "2026-04-13T23:12:27.589467"
+  },
+  {
+    "seq": 18364,
+    "score": 0.5012,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.01,
+      "rsrp": -80.96,
+      "throughput": 40.72,
+      "latency": 78.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:12:27.622503"
+  },
+  {
+    "seq": 18650,
+    "score": 0.5008,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.12,
+      "rsrp": -85.22,
+      "throughput": 14.89,
+      "latency": 93.5,
+      "mos": 2.29
+    },
+    "timestamp": "2026-04-13T23:12:30.046845"
+  },
+  {
+    "seq": 18835,
+    "score": 0.5032,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.85,
+      "rsrp": -80.96,
+      "throughput": 17.53,
+      "latency": 132.0,
+      "mos": 2.27
+    },
+    "timestamp": "2026-04-13T23:12:31.746929"
+  },
+  {
+    "seq": 19014,
+    "score": 0.511,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.34,
+      "rsrp": -87.99,
+      "throughput": 24.26,
+      "latency": 104.5,
+      "mos": 2.39
+    },
+    "timestamp": "2026-04-13T23:12:33.239187"
+  },
+  {
+    "seq": 19153,
+    "score": 0.506,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.55,
+      "rsrp": -85.5,
+      "throughput": 74.37,
+      "latency": 65.5,
+      "mos": 2.8
+    },
+    "timestamp": "2026-04-13T23:12:34.460418"
+  },
+  {
+    "seq": 19440,
+    "score": 0.5191,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 10.71,
+      "rsrp": -80.87,
+      "throughput": 33.47,
+      "latency": 58.5,
+      "mos": 3.05
+    },
+    "timestamp": "2026-04-13T23:12:36.873536"
+  },
+  {
+    "seq": 19441,
+    "score": 0.5276,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.66,
+      "rsrp": -82.56,
+      "throughput": 104.74,
+      "latency": 68.5,
+      "mos": 2.79
+    },
+    "timestamp": "2026-04-13T23:12:36.880050"
+  },
+  {
+    "seq": 20072,
+    "score": 0.5172,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.56,
+      "rsrp": -88.72,
+      "throughput": 13.07,
+      "latency": 100.5,
+      "mos": 2.55
+    },
+    "timestamp": "2026-04-13T23:12:42.242365"
+  },
+  {
+    "seq": 20227,
+    "score": 0.5023,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.92,
+      "rsrp": -84.38,
+      "throughput": 60.85,
+      "latency": 109.5,
+      "mos": 2.44
+    },
+    "timestamp": "2026-04-13T23:12:43.599983"
+  },
+  {
+    "seq": 20401,
+    "score": 0.5054,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.35,
+      "rsrp": -84.59,
+      "throughput": 22.91,
+      "latency": 92.0,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:12:45.138495"
+  },
+  {
+    "seq": 20402,
+    "score": 0.5,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.6,
+      "rsrp": -81.71,
+      "throughput": 28.49,
+      "latency": 105.0,
+      "mos": 2.6
+    },
+    "timestamp": "2026-04-13T23:12:45.147080"
+  },
+  {
+    "seq": 20403,
+    "score": 0.508,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.4,
+      "rsrp": -83.59,
+      "throughput": 27.75,
+      "latency": 140.5,
+      "mos": 2.29
+    },
+    "timestamp": "2026-04-13T23:12:45.155114"
+  },
+  {
+    "seq": 20670,
+    "score": 0.5197,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.31,
+      "rsrp": -82.66,
+      "throughput": 26.6,
+      "latency": 75.5,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:12:47.419121"
+  },
+  {
+    "seq": 20671,
+    "score": 0.5115,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.36,
+      "rsrp": -80.33,
+      "throughput": 29.95,
+      "latency": 75.5,
+      "mos": 2.7
+    },
+    "timestamp": "2026-04-13T23:12:47.431112"
+  },
+  {
+    "seq": 20672,
+    "score": 0.5228,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.31,
+      "rsrp": -82.54,
+      "throughput": 36.25,
+      "latency": 79.0,
+      "mos": 2.58
+    },
+    "timestamp": "2026-04-13T23:12:47.442591"
+  },
+  {
+    "seq": 20720,
+    "score": 0.5285,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.93,
+      "rsrp": -81.08,
+      "throughput": 42.83,
+      "latency": 86.5,
+      "mos": 2.73
+    },
+    "timestamp": "2026-04-13T23:12:47.893072"
+  },
+  {
+    "seq": 20721,
+    "score": 0.5089,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.82,
+      "rsrp": -82.65,
+      "throughput": 24.12,
+      "latency": 90.0,
+      "mos": 2.61
+    },
+    "timestamp": "2026-04-13T23:12:47.899712"
+  },
+  {
+    "seq": 20722,
+    "score": 0.5104,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.02,
+      "rsrp": -89.63,
+      "throughput": 19.19,
+      "latency": 114.0,
+      "mos": 2.18
+    },
+    "timestamp": "2026-04-13T23:12:47.909022"
+  },
+  {
+    "seq": 21407,
+    "score": 0.5095,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.42,
+      "rsrp": -87.49,
+      "throughput": 70.17,
+      "latency": 116.5,
+      "mos": 2.34
+    },
+    "timestamp": "2026-04-13T23:12:53.728815"
+  },
+  {
+    "seq": 21408,
+    "score": 0.5178,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 8.65,
+      "rsrp": -81.4,
+      "throughput": 74.17,
+      "latency": 71.0,
+      "mos": 2.75
+    },
+    "timestamp": "2026-04-13T23:12:53.738400"
+  },
+  {
+    "seq": 21730,
+    "score": 0.5042,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.53,
+      "rsrp": -84.78,
+      "throughput": 58.53,
+      "latency": 95.5,
+      "mos": 2.77
+    },
+    "timestamp": "2026-04-13T23:12:56.464734"
+  },
+  {
+    "seq": 21875,
+    "score": 0.5034,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.22,
+      "rsrp": -80.45,
+      "throughput": 33.89,
+      "latency": 95.5,
+      "mos": 2.51
+    },
+    "timestamp": "2026-04-13T23:12:57.687868"
+  },
+  {
+    "seq": 22738,
+    "score": 0.502,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.45,
+      "rsrp": -82.52,
+      "throughput": 75.89,
+      "latency": 70.0,
+      "mos": 2.77
+    },
+    "timestamp": "2026-04-13T23:13:05.251953"
+  },
+  {
+    "seq": 22779,
+    "score": 0.5033,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.83,
+      "rsrp": -83.2,
+      "throughput": 104.87,
+      "latency": 79.5,
+      "mos": 2.83
+    },
+    "timestamp": "2026-04-13T23:13:05.598578"
+  },
+  {
+    "seq": 22781,
+    "score": 0.5017,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.25,
+      "rsrp": -86.6,
+      "throughput": 150.84,
+      "latency": 100.5,
+      "mos": 2.55
+    },
+    "timestamp": "2026-04-13T23:13:05.615335"
+  },
+  {
+    "seq": 22982,
+    "score": 0.5188,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.75,
+      "rsrp": -88.05,
+      "throughput": 16.11,
+      "latency": 82.0,
+      "mos": 2.77
+    },
+    "timestamp": "2026-04-13T23:13:07.346195"
+  },
+  {
+    "seq": 23131,
+    "score": 0.5029,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.33,
+      "rsrp": -83.19,
+      "throughput": 23.31,
+      "latency": 84.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:13:08.589792"
+  },
+  {
+    "seq": 23132,
+    "score": 0.5146,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.83,
+      "rsrp": -86.35,
+      "throughput": 18.59,
+      "latency": 86.5,
+      "mos": 2.54
+    },
+    "timestamp": "2026-04-13T23:13:08.596807"
+  },
+  {
+    "seq": 23285,
+    "score": 0.5012,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.5,
+      "rsrp": -86.44,
+      "throughput": 31.62,
+      "latency": 74.0,
+      "mos": 2.73
+    },
+    "timestamp": "2026-04-13T23:13:09.931140"
+  },
+  {
+    "seq": 23287,
+    "score": 0.516,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 4.51,
+      "rsrp": -90.62,
+      "throughput": 18.23,
+      "latency": 99.0,
+      "mos": 2.22
+    },
+    "timestamp": "2026-04-13T23:13:09.948471"
+  },
+  {
+    "seq": 23363,
+    "score": 0.5085,
+    "severity": "LOW",
+    "type": "interference",
+    "causes": [
+      "Adjacent channel interference",
+      "External interference sources",
+      "PCI conflicts"
+    ],
+    "solutions": [
+      "Optimize PCI allocation",
+      "Implement ICIC",
+      "RF retuning"
+    ],
+    "metrics": {
+      "sinr": 8.74,
+      "rsrp": -89.13,
+      "throughput": 23.85,
+      "latency": 55.5,
+      "mos": 2.89
+    },
+    "timestamp": "2026-04-13T23:13:10.595410"
+  },
+  {
+    "seq": 23674,
+    "score": 0.5062,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.95,
+      "rsrp": -81.35,
+      "throughput": 116.49,
+      "latency": 73.0,
+      "mos": 2.79
+    },
+    "timestamp": "2026-04-13T23:13:13.247083"
+  },
+  {
+    "seq": 23678,
+    "score": 0.5148,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.6,
+      "rsrp": -85.69,
+      "throughput": 29.54,
+      "latency": 88.0,
+      "mos": 2.53
+    },
+    "timestamp": "2026-04-13T23:13:13.280278"
+  },
+  {
+    "seq": 23852,
+    "score": 0.5022,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.62,
+      "rsrp": -92.78,
+      "throughput": 20.97,
+      "latency": 59.5,
+      "mos": 2.82
+    },
+    "timestamp": "2026-04-13T23:13:14.726329"
+  },
+  {
+    "seq": 23853,
+    "score": 0.5078,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.52,
+      "rsrp": -88.39,
+      "throughput": 21.11,
+      "latency": 73.5,
+      "mos": 2.66
+    },
+    "timestamp": "2026-04-13T23:13:14.735935"
+  },
+  {
+    "seq": 23854,
+    "score": 0.519,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 6.77,
+      "rsrp": -87.56,
+      "throughput": 18.4,
+      "latency": 87.5,
+      "mos": 2.48
+    },
+    "timestamp": "2026-04-13T23:13:14.742940"
+  },
+  {
+    "seq": 24137,
+    "score": 0.5136,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.04,
+      "rsrp": -82.46,
+      "throughput": 99.61,
+      "latency": 90.5,
+      "mos": 2.68
+    },
+    "timestamp": "2026-04-13T23:13:17.167576"
+  },
+  {
+    "seq": 24588,
+    "score": 0.5272,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.75,
+      "rsrp": -80.98,
+      "throughput": 109.42,
+      "latency": 56.0,
+      "mos": 2.99
+    },
+    "timestamp": "2026-04-13T23:13:21.088845"
+  },
+  {
+    "seq": 24782,
+    "score": 0.5279,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.25,
+      "rsrp": -85.47,
+      "throughput": 37.46,
+      "latency": 65.5,
+      "mos": 2.86
+    },
+    "timestamp": "2026-04-13T23:13:22.720608"
+  },
+  {
+    "seq": 24783,
+    "score": 0.5223,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 10.3,
+      "rsrp": -81.98,
+      "throughput": 43.34,
+      "latency": 59.0,
+      "mos": 2.99
+    },
+    "timestamp": "2026-04-13T23:13:22.729633"
+  },
+  {
+    "seq": 24784,
+    "score": 0.5187,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.95,
+      "rsrp": -83.4,
+      "throughput": 44.84,
+      "latency": 63.0,
+      "mos": 2.92
+    },
+    "timestamp": "2026-04-13T23:13:22.736104"
+  },
+  {
+    "seq": 25019,
+    "score": 0.5157,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.85,
+      "rsrp": -85.78,
+      "throughput": 29.09,
+      "latency": 69.0,
+      "mos": 2.71
+    },
+    "timestamp": "2026-04-13T23:13:24.764644"
+  },
+  {
+    "seq": 25020,
+    "score": 0.5103,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 9.0,
+      "rsrp": -82.48,
+      "throughput": 29.18,
+      "latency": 66.5,
+      "mos": 2.77
+    },
+    "timestamp": "2026-04-13T23:13:24.771657"
+  },
+  {
+    "seq": 25021,
+    "score": 0.5215,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.95,
+      "rsrp": -83.02,
+      "throughput": 25.03,
+      "latency": 70.0,
+      "mos": 2.63
+    },
+    "timestamp": "2026-04-13T23:13:24.781725"
+  },
+  {
+    "seq": 25309,
+    "score": 0.5138,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.45,
+      "rsrp": -83.73,
+      "throughput": 18.56,
+      "latency": 67.0,
+      "mos": 2.79
+    },
+    "timestamp": "2026-04-13T23:13:27.209168"
+  },
+  {
+    "seq": 25310,
+    "score": 0.5164,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.03,
+      "rsrp": -80.91,
+      "throughput": 21.11,
+      "latency": 69.5,
+      "mos": 2.73
+    },
+    "timestamp": "2026-04-13T23:13:27.216496"
+  },
+  {
+    "seq": 25311,
+    "score": 0.5184,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 5.08,
+      "rsrp": -84.98,
+      "throughput": 16.94,
+      "latency": 92.5,
+      "mos": 2.36
+    },
+    "timestamp": "2026-04-13T23:13:27.225793"
+  },
+  {
+    "seq": 25644,
+    "score": 0.5086,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 8.4,
+      "rsrp": -82.69,
+      "throughput": 31.16,
+      "latency": 69.0,
+      "mos": 2.84
+    },
+    "timestamp": "2026-04-13T23:13:30.037727"
+  },
+  {
+    "seq": 25645,
+    "score": 0.5219,
+    "severity": "LOW",
+    "type": "high_latency",
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ],
+    "metrics": {
+      "sinr": 7.55,
+      "rsrp": -84.21,
+      "throughput": 86.2,
+      "latency": 70.0,
+      "mos": 2.78
+    },
+    "timestamp": "2026-04-13T23:13:30.045309"
+  },
+  {
+    "seq": 25748,
+    "score": 0.5047,
+    "severity": "LOW",
+    "type": "capacity_issue",
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ],
+    "metrics": {
+      "sinr": 7.3,
+      "rsrp": -83.98,
+      "throughput": 22.76,
+      "latency": 67.5,
+      "mos": 2.69
+    },
+    "timestamp": "2026-04-13T23:13:30.988566"
+  }
+]

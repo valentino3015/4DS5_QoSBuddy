@@ -1,0 +1,110 @@
+{
+  "coverage_edge": {
+    "causes": [
+      "Distance from cell tower",
+      "Physical obstructions",
+      "Poor antenna configuration"
+    ],
+    "solutions": [
+      "Add small cell",
+      "Optimize antenna tilt",
+      "Adjust handover thresholds"
+    ]
+  },
+  "interference": {
+    "causes": [
+      "Adjacent channel interference",
+      "External interference sources",
+      "PCI conflicts"
+    ],
+    "solutions": [
+      "Optimize PCI allocation",
+      "Implement ICIC",
+      "RF retuning"
+    ]
+  },
+  "congestion": {
+    "causes": [
+      "High user density",
+      "Limited backhaul",
+      "Inefficient scheduling"
+    ],
+    "solutions": [
+      "Load balancing",
+      "Add carrier aggregation",
+      "Increase backhaul"
+    ]
+  },
+  "throughput_degradation": {
+    "causes": [
+      "Poor channel quality",
+      "Scheduler issues",
+      "Backhaul bottleneck"
+    ],
+    "solutions": [
+      "Check MCS settings",
+      "Verify scheduler configuration",
+      "Monitor backhaul"
+    ]
+  },
+  "high_latency": {
+    "causes": [
+      "Core network congestion",
+      "Transport issues",
+      "Processing delays"
+    ],
+    "solutions": [
+      "Optimize routing",
+      "Increase bandwidth",
+      "Check queue depths"
+    ]
+  },
+  "voice_quality": {
+    "causes": [
+      "Jitter",
+      "Packet loss",
+      "Insufficient bandwidth"
+    ],
+    "solutions": [
+      "Enable ROHC",
+      "Optimize jitter buffer",
+      "Prioritize VoLTE traffic"
+    ]
+  },
+  "call_drop": {
+    "causes": [
+      "Handover failure",
+      "Signal loss",
+      "Congestion"
+    ],
+    "solutions": [
+      "Optimize handover parameters",
+      "Add coverage",
+      "Implement load balancing"
+    ]
+  },
+  "handover_failure": {
+    "causes": [
+      "Missing neighbor relations",
+      "Fast moving UE",
+      "Incorrect thresholds"
+    ],
+    "solutions": [
+      "Add neighbor relations",
+      "Adjust TTT",
+      "Optimize A3 offset"
+    ]
+  },
+  "capacity_issue": {
+    "causes": [
+      "Too many users",
+      "Spectrum shortage",
+      "Backhaul limit"
+    ],
+    "solutions": [
+      "Add carriers",
+      "Implement CA",
+      "Increase backhaul"
+    ]
+  }
+}

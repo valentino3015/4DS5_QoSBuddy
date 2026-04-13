@@ -1,0 +1,262 @@
+[
+  {
+    "anomaly": false,
+    "score": 0.34,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (2.9 dB)",
+      "High latency (152 ms)",
+      "Poor voice quality (MOS: 1.9)"
+    ],
+    "key_features": {
+      "sinr": 2.86,
+      "rsrp": -84.52,
+      "rsrq": -11.43,
+      "throughput_dl": 17.02,
+      "latency_ms": 151.5,
+      "mos": 1.88,
+      "prb_utilization": 67.61
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:13.338382",
+    "inference_time_ms": 173.45
+  },
+  {
+    "anomaly": false,
+    "score": 0.34,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (0.7 dB)",
+      "High latency (174 ms)",
+      "Poor voice quality (MOS: 1.5)"
+    ],
+    "key_features": {
+      "sinr": 0.66,
+      "rsrp": -87.83,
+      "rsrq": -11.87,
+      "throughput_dl": 15.12,
+      "latency_ms": 174.5,
+      "mos": 1.51,
+      "prb_utilization": 75.68
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:17.351668",
+    "inference_time_ms": 2.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.34,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (1.1 dB)",
+      "High latency (174 ms)",
+      "Poor voice quality (MOS: 1.5)"
+    ],
+    "key_features": {
+      "sinr": 1.11,
+      "rsrp": -87.48,
+      "rsrq": -12.04,
+      "throughput_dl": 13.78,
+      "latency_ms": 174.5,
+      "mos": 1.51,
+      "prb_utilization": 69.68
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:21.362533",
+    "inference_time_ms": 2.0
+  },
+  {
+    "anomaly": false,
+    "score": 0.28,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (1.4 dB)",
+      "Poor voice quality (MOS: 1.6)"
+    ],
+    "key_features": {
+      "sinr": 1.41,
+      "rsrp": -90.22,
+      "rsrq": -12.13,
+      "throughput_dl": 15.96,
+      "latency_ms": 149.5,
+      "mos": 1.61,
+      "prb_utilization": 68.28
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:25.373157",
+    "inference_time_ms": 1.0
+  },
+  {
+    "anomaly": false,
+    "score": 0.28,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (2.7 dB)",
+      "Poor voice quality (MOS: 1.9)"
+    ],
+    "key_features": {
+      "sinr": 2.66,
+      "rsrp": -90.58,
+      "rsrq": -12.24,
+      "throughput_dl": 15.11,
+      "latency_ms": 133.0,
+      "mos": 1.85,
+      "prb_utilization": 68.28
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:29.379686",
+    "inference_time_ms": 1.9
+  },
+  {
+    "anomaly": false,
+    "score": 0.28,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (2.8 dB)",
+      "Poor voice quality (MOS: 1.9)"
+    ],
+    "key_features": {
+      "sinr": 2.83,
+      "rsrp": -92.5,
+      "rsrq": -12.35,
+      "throughput_dl": 15.9,
+      "latency_ms": 121.5,
+      "mos": 1.95,
+      "prb_utilization": 66.46
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:33.389725",
+    "inference_time_ms": 1.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.125,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (4.9 dB)",
+      "Degraded voice quality (MOS: 2.3)"
+    ],
+    "key_features": {
+      "sinr": 4.88,
+      "rsrp": -90.18,
+      "rsrq": -11.98,
+      "throughput_dl": 21.84,
+      "latency_ms": 100.0,
+      "mos": 2.32,
+      "prb_utilization": 61.85
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:37.400791",
+    "inference_time_ms": 1.99
+  },
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.8)"
+    ],
+    "key_features": {
+      "sinr": 7.7,
+      "rsrp": -85.78,
+      "rsrq": -11.05,
+      "throughput_dl": 28.47,
+      "latency_ms": 67.0,
+      "mos": 2.79,
+      "prb_utilization": 60.04
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:41.411868",
+    "inference_time_ms": 1.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.7)"
+    ],
+    "key_features": {
+      "sinr": 7.22,
+      "rsrp": -86.09,
+      "rsrq": -11.38,
+      "throughput_dl": 25.2,
+      "latency_ms": 92.0,
+      "mos": 2.69,
+      "prb_utilization": 60.42
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:45.424212",
+    "inference_time_ms": 2.09
+  },
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.7)"
+    ],
+    "key_features": {
+      "sinr": 7.17,
+      "rsrp": -84.17,
+      "rsrq": -10.88,
+      "throughput_dl": 24.95,
+      "latency_ms": 84.5,
+      "mos": 2.71,
+      "prb_utilization": 55.79
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:49.452784",
+    "inference_time_ms": 16.0
+  }
+]

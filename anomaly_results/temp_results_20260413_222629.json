@@ -1,0 +1,255 @@
+[
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.8)"
+    ],
+    "key_features": {
+      "sinr": 8.42,
+      "rsrp": -79.67,
+      "rsrq": -10.33,
+      "throughput_dl": 24.25,
+      "latency_ms": 81.0,
+      "mos": 2.83,
+      "prb_utilization": 49.73
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:53.468269",
+    "inference_time_ms": 5.11
+  },
+  {
+    "anomaly": false,
+    "score": 0.11,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.6)"
+    ],
+    "key_features": {
+      "sinr": 7.42,
+      "rsrp": -80.89,
+      "rsrq": -10.43,
+      "throughput_dl": 16.31,
+      "latency_ms": 88.5,
+      "mos": 2.64,
+      "prb_utilization": 43.66
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:25:57.483775",
+    "inference_time_ms": 4.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.11,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.6)"
+    ],
+    "key_features": {
+      "sinr": 7.12,
+      "rsrp": -86.21,
+      "rsrq": -10.89,
+      "throughput_dl": 15.16,
+      "latency_ms": 91.0,
+      "mos": 2.57,
+      "prb_utilization": 43.42
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:26:01.504093",
+    "inference_time_ms": 5.0
+  },
+  {
+    "anomaly": false,
+    "score": 0.11,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.7)"
+    ],
+    "key_features": {
+      "sinr": 8.25,
+      "rsrp": -85.52,
+      "rsrq": -10.56,
+      "throughput_dl": 15.77,
+      "latency_ms": 66.0,
+      "mos": 2.67,
+      "prb_utilization": 41.57
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:26:05.524586",
+    "inference_time_ms": 3.93
+  },
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.7)"
+    ],
+    "key_features": {
+      "sinr": 8.85,
+      "rsrp": -82.67,
+      "rsrq": -10.26,
+      "throughput_dl": 22.95,
+      "latency_ms": 63.5,
+      "mos": 2.74,
+      "prb_utilization": 54.59
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:26:09.540616",
+    "inference_time_ms": 4.0
+  },
+  {
+    "anomaly": false,
+    "score": 0.05,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.5)"
+    ],
+    "key_features": {
+      "sinr": 6.25,
+      "rsrp": -86.48,
+      "rsrq": -10.99,
+      "throughput_dl": 23.19,
+      "latency_ms": 96.0,
+      "mos": 2.46,
+      "prb_utilization": 66.31
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:26:13.558205",
+    "inference_time_ms": 3.89
+  },
+  {
+    "anomaly": false,
+    "score": 0.095,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.4)"
+    ],
+    "key_features": {
+      "sinr": 5.93,
+      "rsrp": -86.73,
+      "rsrq": -10.95,
+      "throughput_dl": 25.05,
+      "latency_ms": 106.0,
+      "mos": 2.36,
+      "prb_utilization": 75.13
+    },
+    "anomaly_type": "throughput_degradation",
+    "recommendations": [
+      "Check resource allocation",
+      "Verify MCS settings",
+      "Inspect backhaul capacity"
+    ],
+    "timestamp": "2026-04-13T22:26:17.572863",
+    "inference_time_ms": 2.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.22,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Marginal SINR (4.6 dB)",
+      "High congestion (83% PRB utilization)",
+      "Degraded voice quality (MOS: 2.2)"
+    ],
+    "key_features": {
+      "sinr": 4.63,
+      "rsrp": -87.34,
+      "rsrq": -11.42,
+      "throughput_dl": 26.2,
+      "latency_ms": 120.0,
+      "mos": 2.2,
+      "prb_utilization": 83.18
+    },
+    "anomaly_type": "congestion",
+    "recommendations": [
+      "Implement load balancing",
+      "Increase backhaul capacity",
+      "Optimize scheduler parameters"
+    ],
+    "timestamp": "2026-04-13T22:26:21.587956",
+    "inference_time_ms": 3.91
+  },
+  {
+    "anomaly": false,
+    "score": 0.145,
+    "severity": "LOW",
+    "suspected_causes": [
+      "High congestion (85% PRB utilization)",
+      "Degraded voice quality (MOS: 2.3)"
+    ],
+    "key_features": {
+      "sinr": 5.48,
+      "rsrp": -90.17,
+      "rsrq": -11.47,
+      "throughput_dl": 31.61,
+      "latency_ms": 113.5,
+      "mos": 2.34,
+      "prb_utilization": 84.71
+    },
+    "anomaly_type": "congestion",
+    "recommendations": [
+      "Implement load balancing",
+      "Increase backhaul capacity",
+      "Optimize scheduler parameters"
+    ],
+    "timestamp": "2026-04-13T22:26:25.599906",
+    "inference_time_ms": 5.0
+  },
+  {
+    "anomaly": false,
+    "score": 0.095,
+    "severity": "LOW",
+    "suspected_causes": [
+      "Degraded voice quality (MOS: 2.3)"
+    ],
+    "key_features": {
+      "sinr": 5.73,
+      "rsrp": -91.46,
+      "rsrq": -11.65,
+      "throughput_dl": 25.8,
+      "latency_ms": 112.0,
+      "mos": 2.34,
+      "prb_utilization": 73.07
+    },
+    "anomaly_type": "voice_quality",
+    "recommendations": [
+      "Check VoLTE configuration",
+      "Verify ROHC settings",
+      "Monitor jitter buffer"
+    ],
+    "timestamp": "2026-04-13T22:26:29.611201",
+    "inference_time_ms": 1.99
+  }
+]

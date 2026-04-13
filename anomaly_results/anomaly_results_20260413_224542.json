@@ -1,0 +1,11 @@
+{
+  "summary": {
+    "timestamp": "20260413_224542",
+    "total_sequences": 20,
+    "anomalies_detected": 20,
+    "anomaly_rate": 1.0,
+    "avg_score": 0.73024
+  },
+  "results": [
+    {
+      "anomaly": 

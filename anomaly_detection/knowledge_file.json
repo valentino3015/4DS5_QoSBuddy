@@ -1,0 +1,129 @@
+{
+  "call_drop": {
+    "label": "Call Drop",
+    "causes": [
+      "low_rsrp",
+      "low_sinr",
+      "handover_failure",
+      "overshooting_cell",
+      "missing_neighbors",
+      "bad_tilt_azimuth",
+      "volte_srvcc_failure"
+    ],
+    "cause_details": {
+      "low_rsrp": "Poor signal level (low RSRP)",
+      "low_sinr": "High interference (low SINR)",
+      "handover_failure": "Failed handover (low success rate)",
+      "overshooting_cell": "Cell covering too large an area",
+      "missing_neighbors": "Poor neighbor configuration",
+      "bad_tilt_azimuth": "Incorrect antenna tilt or azimuth",
+      "volte_srvcc_failure": "VoLTE issue (SRVCC failure)"
+    },
+    "solutions": [
+      "optimize_tilt",
+      "adjust_cell_power",
+      "optimize_neighbor_list",
+      "optimize_handover",
+      "deploy_small_cells"
+    ]
+  },
+
+  "voice_quality": {
+    "label": "Poor Voice Quality (Low MOS)",
+    "causes": [
+      "ul_dl_interference",
+      "high_bler",
+      "bad_codec",
+      "prb_congestion",
+      "poor_indoor_coverage"
+    ],
+    "solutions": [
+      "enable_adaptive_amr",
+      "optimize_uplink_power",
+      "prioritize_volte_scheduler",
+      "add_low_band_layer",
+      "deploy_small_cells"
+    ]
+  },
+
+  "low_throughput": {
+    "label": "Low Throughput",
+    "causes": [
+      "low_sinr",
+      "prb_congestion",
+      "poor_cqi",
+      "low_mimo_rank",
+      "insufficient_bandwidth"
+    ],
+    "solutions": [
+      "optimize_tilt",
+      "add_carrier",
+      "enable_4x4_mimo",
+      "optimize_cqi_parameters",
+      "increase_bandwidth"
+    ]
+  },
+
+  "high_latency": {
+    "label": "High Latency",
+    "causes": [
+      "transport_congestion",
+      "poor_ip_routing",
+      "bufferbloat",
+      "core_network_issue",
+      "rlc_retransmissions"
+    ],
+    "solutions": [
+      "optimize_buffers",
+      "upgrade_transport_network",
+      "verify_mtu",
+      "optimize_scheduling",
+      "enable_local_breakout"
+    ]
+  },
+
+  "session_data_drop": {
+    "label": "Session Data Drop",
+    "causes": [
+      "erab_drop",
+      "inter_frequency_handover_failure",
+      "coverage_hole"
+    ],
+    "solutions": [
+      "optimize_handover_thresholds",
+      "adjust_t310_timer",
+      "deploy_low_band_cells",
+      "analyze_drive_test_logs"
+    ]
+  },
+
+  "handover_failure": {
+    "label": "Handover Failure",
+    "causes": [
+      "poor_neighbor_definition",
+      "overshooting_cell",
+      "pci_confusion"
+    ],
+    "solutions": [
+      "clean_pci_configuration",
+      "optimize_a3_offset",
+      "adjust_ttt"
+    ]
+  },
+
+  "capacity_issue": {
+    "label": "Capacity Issues",
+    "symptoms": [
+      "prb_usage_above_85_percent",
+      "cssr_drop_during_peak_hours",
+      "throughput_drop_during_busy_hour"
+    ],
+    "solutions": [
+      "add_carrier",
+      "enable_carrier_aggregation",
+      "sectorization",
+      "deploy_massive_mimo",
+      "apply_load_balancing"
+    ]
+  }
+}
