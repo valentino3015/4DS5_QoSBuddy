@@ -6,15 +6,14 @@ scores remediation actions, and streams everything to a live browser
 dashboard over WebSocket + HTTP.
 
 Usage:
-    python agents/remediation_agent.py
-    python agents/remediation_agent.py --ws-port 9000 --http-port 9001
-    python agents/remediation_agent.py --no-browser
-    python agents/remediation_agent.py --tail-interval 0.5
+    python remediation_agent.py
+    python remediation_agent.py --ws-port 9000 --http-port 9001
+    python remediation_agent.py --no-browser
+    python remediation_agent.py --tail-interval 0.5
 """
 
 import os, sys, json, time, logging, argparse, threading, asyncio
-import webbrowser, http.server, socketserver, warnings
-import math
+import webbrowser, http.server, socketserver, warnings, math
 from pathlib import Path
 from datetime import datetime
 from collections import deque
@@ -235,27 +234,39 @@ class RemediationEngine:
         e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
         return round(p * e * (confidence / 100.0), 3)
 
-    def _summary(self, cause, action, cell_id, severity):
-        mode = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
-        eta  = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
+    def _summary(self, cause, action, cell_id, severity, neighbour_escalated=False):
+        mode    = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
+        eta     = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
+        cluster = " This is a CLUSTER EVENT — multiple adjacent cells are affected simultaneously."                   if neighbour_escalated else ""
         return (
-            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}. "
+            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}.{cluster} "
             f"The recommended fix is to {action['action'].lower()}, which {mode}. "
             f"Expected resolution time is {eta}. "
             f"Once applied, this should {action['impact'].lower()}."
         )
 
     def recommend(self, rca_event):
-        rca        = rca_event.get("rca", {})
-        cause      = rca.get("primary_cause", "")
-        confidence = float(rca.get("confidence_pct", 50.0))
-        severity   = rca_event.get("anomaly_severity", "medium")
-        cell_id    = rca_event.get("cell_id", "unknown")
-        ranked     = rca.get("ranked_causes", [])
+        rca                 = rca_event.get("rca", {})
+        cause               = rca.get("primary_cause", "")
+        confidence          = float(rca.get("confidence_pct", 50.0))
+        severity            = rca_event.get("anomaly_severity", "medium")
+        cell_id             = rca_event.get("cell_id", "unknown")
+        ranked              = rca.get("ranked_causes", [])
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
 
         action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
         action["score"]   = self._score(action, confidence)
-        action["summary"] = self._summary(cause, action, cell_id, severity)
+        action["summary"] = self._summary(cause, action, cell_id, severity,
+                                          neighbour_escalated)
+
+        # For cluster events, prepend a mandatory NOC notification step
+        if neighbour_escalated:
+            action["steps"] = [
+                "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
+                "Open a P1 incident ticket and assign to senior RF engineer",
+            ] + action["steps"]
+            action["priority"] = "Critical"
+            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
 
         alternatives = []
         for alt in ranked[1:4]:
@@ -268,11 +279,13 @@ class RemediationEngine:
             alternatives.append(alt_action)
 
         return {
-            "cause":            cause,
-            "confidence_pct":   confidence,
-            "primary_action":   action,
-            "alternatives":     alternatives,
-            "similar_resolved": rca.get("similar_incidents", []),
+            "cause":               cause,
+            "confidence_pct":      confidence,
+            "primary_action":      action,
+            "alternatives":        alternatives,
+            "similar_resolved":    rca.get("similar_incidents", []),
+            "neighbour_escalated": neighbour_escalated,
+            "is_cluster_event":    neighbour_escalated,
         }
 
 
@@ -356,14 +369,14 @@ async def _broadcast(msg):
 
 
 def clean_nan(obj):
+    """Recursively replace NaN floats with None so json.dumps never fails."""
     if isinstance(obj, float) and math.isnan(obj):
         return None
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [clean_nan(v) for v in obj]
     return obj
-
 
 
 def broadcast_event(event):
