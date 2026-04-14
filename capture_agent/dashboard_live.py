@@ -8,7 +8,7 @@ Run alongside capture_agent.py — opens at http://127.0.0.1:8051
 from http.server import HTTPServer, BaseHTTPRequestHandler
 import json, os, csv, statistics
 
-CSV_PATH   = "qos_realtraffic.csv"
+CSV_PATH   = "capture_agent/qos_realtraffic.csv"
 MAX_BW_MBPS = 100.0  # your connection's max bandwidth — adjust if needed
 
 # ── local IP prefix to detect down vs up direction

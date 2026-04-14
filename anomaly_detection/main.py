@@ -6,7 +6,8 @@ from feature_eng import QoSFeatureEngineer
 # INIT COMPONENTS
 # =========================
 stream = QoSStream(
-    "data_treatement/qosbuddy_dataset_enhanced.csv",
+    "../data_treatement/qosbuddy_dataset_enhanced.csv",
+
     delay=2
 )
 

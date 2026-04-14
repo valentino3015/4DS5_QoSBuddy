@@ -15,10 +15,11 @@ import socket
 
 # ── CONFIG ────────────────────────────────────────────────────────────────────
 TSHARK_PATH   = r"C:\Program Files\Wireshark\tshark.exe"
-INTERFACE     = "6"          # Wi-Fi (index from tshark -D)
+INTERFACE     = "4"          # Wi-Fi (index from tshark -D)
 CAPTURE_DURATION = 600       # seconds total (10 min), change as needed
 FLOW_WINDOW   = 5            # seconds per aggregation window
-OUTPUT_CSV    = "qos_realtraffic.csv"
+OUTPUT_CSV    = "capture_agent/qos_realtraffic.csv"
+
 
 PING_TARGETS  = {
     "gateway":    None,       # auto-detected below

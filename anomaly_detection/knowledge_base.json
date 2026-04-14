@@ -1,0 +1,34 @@
+{
+    "call_drop": {
+    "causes": ["Weak signal", "Failed handover", "Coverage hole"],
+    "solutions": ["Optimize tilt", "Adjust power", "Check neighbor list"]
+    },
+    "voice_quality": {
+    "causes": ["High interference", "High BLER", "Poor indoor coverage"],
+    "solutions": ["Optimize UL power", "Adjust scheduler", "Deploy small cells"]
+    },
+    "low_throughput": {
+    "causes": ["Low SINR", "PRB congestion", "Poor CQI"],
+    "solutions": ["Activate carrier aggregation", "Optimize CQI", "Increase bandwidth"]
+    },
+    "high_latency": {
+    "causes": ["Transport congestion", "Bad routing", "Bufferbloat"],
+    "solutions": ["Optimize buffers", "Upgrade transport", "Optimize scheduling"]
+    },
+    "session_data_drop": {
+    "causes": ["ERAB drop", "Coverage hole", "Inter-frequency HO issue"],
+    "solutions": ["Adjust T310", "Optimize HO thresholds", "Add 800 MHz layer"]
+    },
+    "handover_failure": {
+    "causes": ["Missing neighbors", "Overshooting cell", "PCI confusion"],
+    "solutions": ["Clean PCI", "Optimize A3 offset", "Adjust TTT"]
+    },
+    "capacity_issue": {
+    "causes": ["High PRB load", "Busy hour congestion", "Too many users"],
+    "solutions": ["Add carrier", "Sectorize cells", "Enable load balancing"]
+    },
+    "interference": {
+    "causes": ["Low SINR", "Neighbor interference", "Poor radio conditions"],
+    "solutions": ["Optimize PCI", "Reduce interference", "Retune radio parameters"]
+    }
+}

@@ -55,9 +55,9 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
         throughput_down.append(round(float(row[7] or 0), 2))
         throughput_up.append(round(float(row[8] or 0), 2))
         util.append(round(float(row[9] or 0), 2))
-        resp_time.append(round(float(row[11] or 0), 2))
-        error.append(round(float(row[12] or 0), 2))
-        availability.append(round(float(row[13] or 0), 2))
+        resp_time.append(round(float(row[10] or 0), 2))
+        error.append(round(float(row[11] or 0), 2))
+        availability.append(round(float(row[12] or 0), 2))
 
     return {
         "timestamps": timestamps,
@@ -77,7 +77,14 @@ def _rows_to_chart_data(rows: Sequence[Sequence[Any]]) -> Dict[str, List[Any]]:
 def dashboard():
     cur = mysql.connection.cursor()
     try:
-        cur.execute("SELECT * FROM network_metrics ORDER BY timestamp DESC LIMIT 30")
+        cur.execute("""
+    SELECT timestamp, source_ip, destination_ip, avg_rtt, p95_rtt, jitter,
+    packet_loss, throughput_down, throughput_up, bandwidth_utilization,
+    response_time, http_error_rate, availability
+    FROM network_metrics
+    ORDER BY timestamp DESC
+    LIMIT 30
+""")
         data = cur.fetchall()
     finally:
         cur.close()
