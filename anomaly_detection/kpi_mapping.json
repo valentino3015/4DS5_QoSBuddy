@@ -1,0 +1,375 @@
+[
+  {
+    "problem_id": 1,
+    "problem": "Call Drop / Call Fail (Coupure d'appel / Échec d'appel)",
+    "label_kpi": "label_call_drop_risk",
+    "kpi_triggers": [
+      {
+        "kpi": "rsrp",
+        "description": "Mauvais niveau de signal",
+        "plage_critique": "< -110 dBm",
+        "plage_warning": "-110 dBm à -100 dBm",
+        "plage_normale": "> -100 dBm"
+      },
+      {
+        "kpi": "sinr",
+        "description": "Mauvais SINR / Interférences élevées",
+        "plage_critique": "< 0 dB",
+        "plage_warning": "0 dB à 5 dB",
+        "plage_normale": "> 5 dB"
+      },
+      {
+        "kpi": "rsrq",
+        "description": "Mauvaise qualité du signal de référence",
+        "plage_critique": "< -15 dB",
+        "plage_warning": "-15 dB à -10 dB",
+        "plage_normale": "> -10 dB"
+      },
+      {
+        "kpi": "label_handover_risk",
+        "description": "Risque de handover échoué",
+        "plage_critique": "1 (risque détecté)",
+        "plage_normale": "0 (pas de risque)"
+      },
+      {
+        "kpi": "label_coverage_hole",
+        "description": "Zone de trou de couverture",
+        "plage_critique": "1 (trou détecté)",
+        "plage_normale": "0 (couverture normale)"
+      }
+    ],
+    "solutions": [
+      "Optimisation tilt mécanique/électrique",
+      "Ajustement puissance cellule",
+      "Optimisation liste voisins",
+      "Optimisation HO",
+      "Analyse zone trou de couverture → ajout site / small cell"
+    ]
+  },
+  {
+    "problem_id": 2,
+    "problem": "Mauvaise qualité voix (MOS faible)",
+    "label_kpi": "label_voice_quality_risk",
+    "kpi_triggers": [
+      {
+        "kpi": "mos",
+        "description": "Score de qualité vocale",
+        "plage_critique": "< 2.5",
+        "plage_warning": "2.5 à 3.5",
+        "plage_normale": "> 3.5"
+      },
+      {
+        "kpi": "bler_dl_pct",
+        "description": "Taux d'erreur bloc DL élevé",
+        "plage_critique": "> 15%",
+        "plage_warning": "10% à 15%",
+        "plage_normale": "< 10%"
+      },
+      {
+        "kpi": "sinr",
+        "description": "Interférences UL/DL",
+        "plage_critique": "< 0 dB",
+        "plage_warning": "0 dB à 5 dB",
+        "plage_normale": "> 5 dB"
+      },
+      {
+        "kpi": "rsrp",
+        "description": "Mauvaise couverture indoor",
+        "plage_critique": "< -110 dBm",
+        "plage_warning": "-110 dBm à -100 dBm",
+        "plage_normale": "> -100 dBm"
+      },
+      {
+        "kpi": "prb_util_dl_pct",
+        "description": "Congestion PRB DL",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "prb_util_ul_pct",
+        "description": "Congestion PRB UL",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "label_interference",
+        "description": "Interférences détectées",
+        "plage_critique": "1 (interférence détectée)",
+        "plage_normale": "0 (pas d'interférence)"
+      }
+    ],
+    "solutions": [
+      "Activer AMR adaptatif",
+      "Optimiser puissance UL",
+      "Ajuster scheduler priorité VoLTE",
+      "Ajouter couche 800/900 MHz pour indoor",
+      "Déploiement IBS / small cells"
+    ]
+  },
+  {
+    "problem_id": 3,
+    "problem": "Débit faible (Low Throughput)",
+    "label_kpi": "label_low_throughput",
+    "kpi_triggers": [
+      {
+        "kpi": "throughput_dl",
+        "description": "Débit descendant faible",
+        "plage_critique": "< 5 Mbps",
+        "plage_warning": "5 Mbps à 20 Mbps",
+        "plage_normale": "> 20 Mbps"
+      },
+      {
+        "kpi": "throughput_ul",
+        "description": "Débit montant faible",
+        "plage_critique": "< 1 Mbps",
+        "plage_warning": "1 Mbps à 5 Mbps",
+        "plage_normale": "> 5 Mbps"
+      },
+      {
+        "kpi": "sinr",
+        "description": "SINR faible → mauvais CQI",
+        "plage_critique": "< 3 dB",
+        "plage_warning": "3 dB à 10 dB",
+        "plage_normale": "> 10 dB"
+      },
+      {
+        "kpi": "prb_util_dl_pct",
+        "description": "Congestion PRB DL",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "prb_util_ul_pct",
+        "description": "Congestion PRB UL",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "mimo_rank",
+        "description": "Mauvais rang MIMO (faible spectral efficiency)",
+        "plage_critique": "1 (SISO uniquement)",
+        "plage_warning": "2",
+        "plage_normale": "≥ 3"
+      },
+      {
+        "kpi": "bler_dl_pct",
+        "description": "BLER élevé → retransmissions fréquentes",
+        "plage_critique": "> 15%",
+        "plage_warning": "10% à 15%",
+        "plage_normale": "< 10%"
+      },
+      {
+        "kpi": "label_prb_congestion",
+        "description": "Congestion PRB détectée",
+        "plage_critique": "1 (congestion détectée)",
+        "plage_normale": "0 (pas de congestion)"
+      }
+    ],
+    "solutions": [
+      "Optimisation tilt",
+      "Ajout carrier (CA activation)",
+      "Activation 4x4 MIMO",
+      "Optimisation paramètres CQI",
+      "Augmenter bandwidth (10 → 20 MHz)"
+    ]
+  },
+  {
+    "problem_id": 4,
+    "problem": "Latence élevée (High Latency)",
+    "label_kpi": "any_degradation + latency_ms",
+    "kpi_triggers": [
+      {
+        "kpi": "latency_ms",
+        "description": "Latence applicative élevée",
+        "plage_critique": "> 100 ms",
+        "plage_warning": "50 ms à 100 ms",
+        "plage_normale": "< 50 ms"
+      },
+      {
+        "kpi": "prb_util_dl_pct",
+        "description": "Congestion transport / scheduler surchargé",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "bler_dl_pct",
+        "description": "BLER → RLC retransmissions → latence ajoutée",
+        "plage_critique": "> 15%",
+        "plage_warning": "10% à 15%",
+        "plage_normale": "< 10%"
+      },
+      {
+        "kpi": "throughput_dl",
+        "description": "Débit faible symptôme de congestion / bufferbloat",
+        "plage_critique": "< 5 Mbps",
+        "plage_warning": "5 Mbps à 20 Mbps",
+        "plage_normale": "> 20 Mbps"
+      }
+    ],
+    "solutions": [
+      "Optimisation buffer",
+      "Upgrade transmission",
+      "Vérification MTU",
+      "Optimisation scheduling",
+      "Local breakout"
+    ]
+  },
+  {
+    "problem_id": 5,
+    "problem": "Session Data Drop (ERAB Drop)",
+    "label_kpi": "label_call_drop_risk + label_handover_risk",
+    "kpi_triggers": [
+      {
+        "kpi": "rsrp",
+        "description": "Coverage hole → perte de session",
+        "plage_critique": "< -110 dBm",
+        "plage_warning": "-110 dBm à -100 dBm",
+        "plage_normale": "> -100 dBm"
+      },
+      {
+        "kpi": "sinr",
+        "description": "Interférences → instabilité de session",
+        "plage_critique": "< 0 dB",
+        "plage_warning": "0 dB à 5 dB",
+        "plage_normale": "> 5 dB"
+      },
+      {
+        "kpi": "rsrq",
+        "description": "Qualité signal faible → ERAB drop",
+        "plage_critique": "< -15 dB",
+        "plage_warning": "-15 dB à -10 dB",
+        "plage_normale": "> -10 dB"
+      },
+      {
+        "kpi": "label_handover_risk",
+        "description": "HO inter-frequency échoué",
+        "plage_critique": "1 (risque détecté)",
+        "plage_normale": "0 (pas de risque)"
+      },
+      {
+        "kpi": "label_coverage_hole",
+        "description": "Zone sans couverture",
+        "plage_critique": "1 (trou détecté)",
+        "plage_normale": "0 (couverture normale)"
+      }
+    ],
+    "solutions": [
+      "Optimisation HO thresholds (accélérer HO, ajuster timer)",
+      "Ajuster timer T310",
+      "Ajouter cellule 800 MHz",
+      "Analyse drive test log (L3 events)"
+    ]
+  },
+  {
+    "problem_id": 6,
+    "problem": "Handover Failure (Échec de handover)",
+    "label_kpi": "label_handover_risk",
+    "kpi_triggers": [
+      {
+        "kpi": "rsrp",
+        "description": "Signal faible → HO tardif ou manqué",
+        "plage_critique": "< -110 dBm",
+        "plage_warning": "-110 dBm à -100 dBm",
+        "plage_normale": "> -100 dBm"
+      },
+      {
+        "kpi": "rsrq",
+        "description": "Qualité faible → déclenchement HO trop tard",
+        "plage_critique": "< -15 dB",
+        "plage_warning": "-15 dB à -10 dB",
+        "plage_normale": "> -10 dB"
+      },
+      {
+        "kpi": "sinr",
+        "description": "Interférences PCI confusion / overshooting",
+        "plage_critique": "< 0 dB",
+        "plage_warning": "0 dB à 5 dB",
+        "plage_normale": "> 5 dB"
+      },
+      {
+        "kpi": "label_handover_risk",
+        "description": "Risque handover détecté",
+        "plage_critique": "1 (risque détecté)",
+        "plage_normale": "0 (pas de risque)"
+      },
+      {
+        "kpi": "label_interference",
+        "description": "Interférences contribuant à PCI confusion",
+        "plage_critique": "1 (interférence détectée)",
+        "plage_normale": "0 (pas d'interférence)"
+      }
+    ],
+    "solutions": [
+      "Nettoyage PCI",
+      "Optimisation A3 offset",
+      "Ajuster TTT (time to trigger)"
+    ]
+  },
+  {
+    "problem_id": 7,
+    "problem": "Problèmes de capacité (Capacity Issues)",
+    "label_kpi": "label_prb_congestion",
+    "kpi_triggers": [
+      {
+        "kpi": "prb_util_dl_pct",
+        "description": "Congestion PRB DL en busy hour",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "prb_util_ul_pct",
+        "description": "Congestion PRB UL en busy hour",
+        "plage_critique": "> 85%",
+        "plage_warning": "70% à 85%",
+        "plage_normale": "< 70%"
+      },
+      {
+        "kpi": "throughput_dl",
+        "description": "Chute du débit en heure chargée",
+        "plage_critique": "< 5 Mbps",
+        "plage_warning": "5 Mbps à 20 Mbps",
+        "plage_normale": "> 20 Mbps"
+      },
+      {
+        "kpi": "throughput_ul",
+        "description": "Débit UL dégradé par congestion",
+        "plage_critique": "< 1 Mbps",
+        "plage_warning": "1 Mbps à 5 Mbps",
+        "plage_normale": "> 5 Mbps"
+      },
+      {
+        "kpi": "mimo_rank",
+        "description": "Rang MIMO bas → spectral efficiency insuffisante",
+        "plage_critique": "1",
+        "plage_warning": "2",
+        "plage_normale": "≥ 3"
+      },
+      {
+        "kpi": "sinr",
+        "description": "SINR dégradé par interférences intra-site",
+        "plage_critique": "< 3 dB",
+        "plage_warning": "3 dB à 10 dB",
+        "plage_normale": "> 10 dB"
+      },
+      {
+        "kpi": "label_prb_congestion",
+        "description": "Flag de congestion PRB",
+        "plage_critique": "1 (congestion détectée)",
+        "plage_normale": "0 (pas de congestion)"
+      }
+    ],
+    "solutions": [
+      "Ajout carrier",
+      "Activation CA (carrier aggregation)",
+      "Sectorisation 3 → 6 secteurs",
+      "Massive MIMO (augmenter MIMO)",
+      "Load balancing (réguler charge)"
+    ]
+  }
+]
