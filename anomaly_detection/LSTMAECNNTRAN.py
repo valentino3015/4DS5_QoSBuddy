@@ -271,7 +271,22 @@ class MultiModalScorer:
 
         self.w_lstm   = 0.30
         self.w_tcnn   = 0.70
+        self.top2_quality_threshold = 0.55
         self._trained = False
+
+    def _kb_causes_solutions(self, key: str) -> Tuple[List[str], List[str]]:
+        kb_entry = self.kb.get(key, {})
+        causes = kb_entry.get('causes', [])
+        if not causes:
+            # Quality fallback: for entries defined with symptoms only.
+            causes = kb_entry.get('symptoms', [])
+        solutions = kb_entry.get('solutions', [])
+
+        if not causes:
+            causes = ['Unknown cause']
+        if not solutions:
+            solutions = ['Check system logs']
+        return causes[:3], solutions[:3]
 
     # ── public training entry-point ───────────────────────────
 
@@ -411,18 +426,29 @@ class MultiModalScorer:
                 severity = sev
                 break
 
-        top_deg  = max(deg_probs, key=deg_probs.get)
-        top_prob = deg_probs[top_deg]
-        kb_entry = self.kb.get(top_deg, {})
+        sorted_deg = sorted(deg_probs.items(), key=lambda kv: kv[1], reverse=True)
+        top_deg, top_prob = sorted_deg[0]
+        second_deg, second_prob = sorted_deg[1]
+
+        # Quality mode: if top-1 confidence is weak, include top-2 diagnostic context.
+        if top_prob < self.top2_quality_threshold:
+            degradation_type = f"{top_deg} | {second_deg}"
+            top_causes, top_solutions = self._kb_causes_solutions(top_deg)
+            second_causes, second_solutions = self._kb_causes_solutions(second_deg)
+            causes = top_causes + [f"Alternative hypothesis: {c}" for c in second_causes[:2]]
+            solutions = top_solutions + [f"Alternative action: {s}" for s in second_solutions[:2]]
+        else:
+            degradation_type = top_deg
+            causes, solutions = self._kb_causes_solutions(top_deg)
 
         return AnomalyResult(
             final_score=round(final, 4),
             is_anomaly=final > 0.5,
             severity=severity,
-            degradation_type=top_deg,
+            degradation_type=degradation_type,
             degradation_probability=round(top_prob, 4),
             model_scores={'lstm': round(lstm_s, 4), 'tcnn': round(tcnn_s, 4)},
             degradation_probs=deg_probs,
-            causes=kb_entry.get('causes',    ['Unknown cause'])[:3],
-            solutions=kb_entry.get('solutions', ['Check system logs'])[:3],
+            causes=causes[:5],
+            solutions=solutions[:5],
         )

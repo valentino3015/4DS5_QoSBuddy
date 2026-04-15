@@ -23,7 +23,7 @@ from LSTMAECNNTRAN import MultiModalScorer, LABEL_COLS
 # ─────────────────────────────────────────────────────────────
 CONFIG = {
     "csv_path":            "data_treatement/qosbuddy_dataset_enhanced.csv",
-    "knowledge_base_path": "knowledge_base.json",
+    "knowledge_base_path": "anomaly_detection/knowledge_file.json",
     "window_size":         10,
     "step":                2,
     "sequence_length":     5,

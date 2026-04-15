@@ -2,128 +2,133 @@
   "call_drop": {
     "label": "Call Drop",
     "causes": [
-      "low_rsrp",
-      "low_sinr",
-      "handover_failure",
-      "overshooting_cell",
-      "missing_neighbors",
-      "bad_tilt_azimuth",
-      "volte_srvcc_failure"
+      "Poor signal level (low RSRP)",
+      "Low SINR / high interference",
+      "Failed handover (low HO success rate)",
+      "Overshooting cell",
+      "Missing or poor neighbor relations",
+      "Incorrect antenna tilt/azimuth",
+      "VoLTE issue (SRVCC failure)"
     ],
-    "cause_details": {
-      "low_rsrp": "Poor signal level (low RSRP)",
-      "low_sinr": "High interference (low SINR)",
-      "handover_failure": "Failed handover (low success rate)",
-      "overshooting_cell": "Cell covering too large an area",
-      "missing_neighbors": "Poor neighbor configuration",
-      "bad_tilt_azimuth": "Incorrect antenna tilt or azimuth",
-      "volte_srvcc_failure": "VoLTE issue (SRVCC failure)"
-    },
     "solutions": [
-      "optimize_tilt",
-      "adjust_cell_power",
-      "optimize_neighbor_list",
-      "optimize_handover",
-      "deploy_small_cells"
+      "Optimize mechanical/electrical antenna tilt",
+      "Adjust cell transmit power",
+      "Optimize neighbor list",
+      "Optimize handover parameters",
+      "Analyze coverage holes and add a site/small cell if needed"
     ]
   },
-
   "voice_quality": {
     "label": "Poor Voice Quality (Low MOS)",
     "causes": [
-      "ul_dl_interference",
-      "high_bler",
-      "bad_codec",
-      "prb_congestion",
-      "poor_indoor_coverage"
+      "Uplink/downlink interference (poor RSRP/SINR conditions)",
+      "High BLER",
+      "Suboptimal codec configuration",
+      "PRB congestion",
+      "Poor indoor coverage"
     ],
     "solutions": [
-      "enable_adaptive_amr",
-      "optimize_uplink_power",
-      "prioritize_volte_scheduler",
-      "add_low_band_layer",
-      "deploy_small_cells"
+      "Enable adaptive AMR",
+      "Optimize uplink transmit power",
+      "Tune scheduler to prioritize VoLTE traffic",
+      "Add 800/900 MHz layer for indoor coverage",
+      "Deploy IBS/small cells"
     ]
   },
-
   "low_throughput": {
     "label": "Low Throughput",
     "causes": [
-      "low_sinr",
-      "prb_congestion",
-      "poor_cqi",
-      "low_mimo_rank",
-      "insufficient_bandwidth"
+      "Low SINR",
+      "PRB congestion",
+      "Poor CQI",
+      "Low MIMO rank",
+      "Insufficient bandwidth or unsuitable carrier"
     ],
     "solutions": [
-      "optimize_tilt",
-      "add_carrier",
-      "enable_4x4_mimo",
-      "optimize_cqi_parameters",
-      "increase_bandwidth"
+      "Optimize antenna tilt",
+      "Add carrier / activate carrier aggregation",
+      "Enable 4x4 MIMO",
+      "Tune CQI-related parameters",
+      "Increase bandwidth (e.g., 10 to 20 MHz)"
     ]
   },
-
   "high_latency": {
     "label": "High Latency",
     "causes": [
-      "transport_congestion",
-      "poor_ip_routing",
-      "bufferbloat",
-      "core_network_issue",
-      "rlc_retransmissions"
+      "Transport congestion (high delay)",
+      "Suboptimal IP routing",
+      "Bufferbloat",
+      "UPF/SGW core network issue",
+      "RLC retransmissions"
     ],
     "solutions": [
-      "optimize_buffers",
-      "upgrade_transport_network",
-      "verify_mtu",
-      "optimize_scheduling",
-      "enable_local_breakout"
+      "Optimize buffer settings",
+      "Upgrade transport network capacity",
+      "Verify MTU configuration",
+      "Optimize scheduling policy",
+      "Enable local breakout where applicable"
     ]
   },
-
   "session_data_drop": {
     "label": "Session Data Drop",
     "causes": [
-      "erab_drop",
-      "inter_frequency_handover_failure",
-      "coverage_hole"
+      "ERAB drop",
+      "Inter-frequency handover failure",
+      "Coverage hole"
     ],
     "solutions": [
-      "optimize_handover_thresholds",
-      "adjust_t310_timer",
-      "deploy_low_band_cells",
-      "analyze_drive_test_logs"
+      "Optimize handover thresholds and timer behavior",
+      "Adjust T310 timer",
+      "Deploy/add 800 MHz coverage cells",
+      "Analyze drive test logs (L3 events)"
     ]
   },
-
   "handover_failure": {
     "label": "Handover Failure",
     "causes": [
-      "poor_neighbor_definition",
-      "overshooting_cell",
-      "pci_confusion"
+      "Poor neighbor relation definition",
+      "Overshooting cell",
+      "PCI confusion"
     ],
     "solutions": [
-      "clean_pci_configuration",
-      "optimize_a3_offset",
-      "adjust_ttt"
+      "Clean and normalize PCI plan",
+      "Optimize A3 offset",
+      "Adjust TTT (Time to Trigger)"
     ]
   },
-
   "capacity_issue": {
     "label": "Capacity Issues",
+    "causes": [
+      "PRB utilization above 85%",
+      "CSSR degradation during peak hours",
+      "Throughput drop during busy hour"
+    ],
     "symptoms": [
-      "prb_usage_above_85_percent",
-      "cssr_drop_during_peak_hours",
-      "throughput_drop_during_busy_hour"
+      "PRB > 85%",
+      "CSSR drops in busy hours",
+      "Throughput decreases at peak time"
     ],
     "solutions": [
-      "add_carrier",
-      "enable_carrier_aggregation",
-      "sectorization",
-      "deploy_massive_mimo",
-      "apply_load_balancing"
+      "Add carrier capacity",
+      "Enable carrier aggregation",
+      "Sectorize (e.g., 3 to 6 sectors)",
+      "Deploy Massive MIMO",
+      "Apply load balancing"
+    ]
+  },
+  "interference": {
+    "label": "Interference",
+    "causes": [
+      "Adjacent channel interference",
+      "External interference source",
+      "PCI conflicts or confusion",
+      "Poor frequency reuse plan"
+    ],
+    "solutions": [
+      "Optimize PCI planning",
+      "Apply ICIC/eICIC where relevant",
+      "Retune RF parameters",
+      "Clean external interferers and validate spectrum usage"
     ]
   }
 }
