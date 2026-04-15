@@ -22,13 +22,17 @@ except Exception:
     XGBOOST_AVAILABLE = False
 
 
+# ============================================================
+# BINARY MODELS
+# ============================================================
+
 def train_random_forest_baseline(
     X_train: np.ndarray,
     y_train: np.ndarray,
     random_state: int = 42,
 ) -> Pipeline:
     """
-    Train a RandomForest baseline for anomaly prediction.
+    Train a RandomForest baseline for binary anomaly prediction.
     """
     model = Pipeline(
         steps=[
@@ -57,7 +61,7 @@ def train_xgboost_baseline(
     random_state: int = 42,
 ) -> Pipeline:
     """
-    Train an XGBoost baseline if xgboost is installed.
+    Train an XGBoost baseline for binary anomaly prediction.
     """
     if not XGBOOST_AVAILABLE:
         raise ImportError(
@@ -86,13 +90,87 @@ def train_xgboost_baseline(
     return model
 
 
+# ============================================================
+# MULTICLASS MODELS
+# ============================================================
+
+def train_xgboost_multiclass(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    num_classes: int,
+    random_state: int = 42,
+) -> Pipeline:
+    """
+    Train an XGBoost model for multiclass anomaly type prediction.
+    """
+    if not XGBOOST_AVAILABLE:
+        raise ImportError(
+            "xgboost is not installed. Install it first before using multiclass XGBoost."
+        )
+
+    model = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            (
+                "classifier",
+                XGBClassifier(
+                    n_estimators=300,
+                    max_depth=6,
+                    learning_rate=0.05,
+                    subsample=0.9,
+                    colsample_bytree=0.9,
+                    objective="multi:softmax",
+                    num_class=num_classes,
+                    eval_metric="mlogloss",
+                    random_state=random_state,
+                ),
+            ),
+        ]
+    )
+    model.fit(X_train, y_train)
+    return model
+
+
+def train_random_forest_multiclass(
+    X_train: np.ndarray,
+    y_train: np.ndarray,
+    random_state: int = 42,
+) -> Pipeline:
+    """
+    Train a RandomForest model for multiclass anomaly type prediction.
+    """
+    model = Pipeline(
+        steps=[
+            ("imputer", SimpleImputer(strategy="median")),
+            (
+                "classifier",
+                RandomForestClassifier(
+                    n_estimators=300,
+                    max_depth=12,
+                    min_samples_split=10,
+                    min_samples_leaf=4,
+                    class_weight="balanced",
+                    random_state=random_state,
+                    n_jobs=-1,
+                ),
+            ),
+        ]
+    )
+    model.fit(X_train, y_train)
+    return model
+
+
+# ============================================================
+# BINARY EVALUATION
+# ============================================================
+
 def evaluate_classifier(
     model: Pipeline,
     X_test: np.ndarray,
     y_test: np.ndarray,
 ) -> Dict[str, Any]:
     """
-    Evaluate a trained classifier and return a metrics dictionary.
+    Evaluate a trained binary classifier and return a metrics dictionary.
     """
     y_pred = model.predict(X_test)
 
@@ -112,7 +190,7 @@ def evaluate_classifier(
 
 def print_evaluation_results(results: Dict[str, Any], model_name: str = "Model") -> None:
     """
-    Pretty-print evaluation results.
+    Pretty-print binary evaluation results.
     """
     print("\n" + "=" * 70)
     print(f"{model_name.upper()} - EVALUATION RESULTS")
@@ -132,6 +210,68 @@ def print_evaluation_results(results: Dict[str, Any], model_name: str = "Model")
     print("=" * 70)
     print(results["classification_report"])
 
+
+# ============================================================
+# MULTICLASS EVALUATION
+# ============================================================
+
+def evaluate_multiclass_classifier(
+    model: Pipeline,
+    X_test: np.ndarray,
+    y_test: np.ndarray,
+    class_names: List[str] | None = None,
+) -> Dict[str, Any]:
+    """
+    Evaluate a trained multiclass classifier.
+    """
+    y_pred = model.predict(X_test)
+
+    results = {
+        "accuracy": accuracy_score(y_test, y_pred),
+        "precision_macro": precision_score(y_test, y_pred, average="macro", zero_division=0),
+        "recall_macro": recall_score(y_test, y_pred, average="macro", zero_division=0),
+        "f1_macro": f1_score(y_test, y_pred, average="macro", zero_division=0),
+        "confusion_matrix": confusion_matrix(y_test, y_pred),
+        "classification_report": classification_report(
+            y_test,
+            y_pred,
+            target_names=class_names if class_names is not None else None,
+            zero_division=0,
+        ),
+        "y_pred": y_pred,
+    }
+    return results
+
+
+def print_multiclass_results(
+    results: Dict[str, Any],
+    model_name: str = "Multiclass Model",
+) -> None:
+    """
+    Pretty-print multiclass evaluation results.
+    """
+    print("\n" + "=" * 70)
+    print(f"{model_name.upper()} - MULTICLASS EVALUATION RESULTS")
+    print("=" * 70)
+    print(f"Accuracy        : {results['accuracy']:.4f}")
+    print(f"Precision macro : {results['precision_macro']:.4f}")
+    print(f"Recall macro    : {results['recall_macro']:.4f}")
+    print(f"F1 macro        : {results['f1_macro']:.4f}")
+
+    print("\n" + "=" * 70)
+    print("CONFUSION MATRIX")
+    print("=" * 70)
+    print(results["confusion_matrix"])
+
+    print("\n" + "=" * 70)
+    print("CLASSIFICATION REPORT")
+    print("=" * 70)
+    print(results["classification_report"])
+
+
+# ============================================================
+# FEATURE IMPORTANCE
+# ============================================================
 
 def get_feature_importance(
     model: Pipeline,
