@@ -1,0 +1,18 @@
+Accuracy: 0.39543514566709964
+Weighted F1 score: 0.2685814815948687
+
+Classification report:
+              precision    recall  f1-score   support
+
+    CRITICAL       0.00      0.00      0.00      4056
+          OK       0.48      0.94      0.64      4521
+     WARNING       0.01      0.00      0.00      2201
+
+    accuracy                           0.40     10778
+   macro avg       0.16      0.32      0.21     10778
+weighted avg       0.20      0.40      0.27     10778
+
+Confusion matrix:
+[[   0 2366 1690]
+ [   0 4252  269]
+ [   0 2191   10]]
