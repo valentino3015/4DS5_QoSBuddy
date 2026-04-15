@@ -447,13 +447,19 @@ def start_http_server(port):
 
 
 def prepare_dashboard(ws_port):
+    import re
     html_path = DASHBOARD_DIR / "index.html"
     if not html_path.exists():
         log.error(f"Dashboard index.html not found at {html_path}")
         log.error("Place the dashboard/index.html file in the project root dashboard/ folder.")
         sys.exit(1)
     content = html_path.read_text(encoding="utf-8")
-    content = content.replace("__WS_PORT__", str(ws_port))
+    # Replace either the __WS_PORT__ placeholder or a previously injected port number
+    content = re.sub(
+        r'const WS_PORT\s*=\s*(?:__WS_PORT__|\d+)\s*;',
+        f'const WS_PORT = {ws_port};',
+        content
+    )
     html_path.write_text(content, encoding="utf-8")
     log.info(f"Dashboard ready -> {html_path}")
 
