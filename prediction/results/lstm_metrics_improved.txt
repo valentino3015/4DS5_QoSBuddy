@@ -1,0 +1,17 @@
+Best threshold: 0.0016558635979890823
+Accuracy: 0.7109853405084431
+Weighted F1 score: 0.6968019340637529
+
+Classification report:
+              precision    recall  f1-score   support
+
+           0       0.74      0.48      0.58      4521
+           1       0.70      0.88      0.78      6257
+
+    accuracy                           0.71     10778
+   macro avg       0.72      0.68      0.68     10778
+weighted avg       0.72      0.71      0.70     10778
+
+Confusion matrix:
+[[2181 2340]
+ [ 775 5482]]
