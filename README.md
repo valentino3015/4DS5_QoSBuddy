@@ -3,6 +3,20 @@
 
 ---
 
+## Introduction
+
+QoSBuddy is an AI-driven network operations project designed to help operators observe, understand, and improve Quality of Service in near real time.
+
+QoSBuddy aims to:
+
+- Monitor network performance in real time
+- Detect anomalies automatically
+- Predict potential degradations
+- Recommend corrective actions
+- Provide clear and actionable reports
+
+---
+
 ## Project Information
 
 **Project Duration:** 12 Weeks  
@@ -19,277 +33,123 @@
 - Omar Zallila  
 - Ahmed Abid  
 
----
+## 1) Folder Roles
 
-## 1. Overview
+### `agents/`
+Contains the runtime intelligence of the system:
 
-QoSBuddy is an AI-driven system designed to monitor, predict, and optimize **Network Quality of Service (QoS)** in real time.
+- `detection_agent.py`
+  - Trains anomaly + RCA models (batch mode).
+  - Replays KPI time series (stream mode).
+  - Detects anomalies using:
+    - rule engine
+    - LSTM autoencoder
+    - Temporal CNN
+    - neighbor-cell correlation
+  - Runs inline RCA and writes events to `data/output/rca_feed.jsonl`.
 
-Modern communication networks support critical services such as VoIP, cloud applications, video streaming, and real-time systems. Maintaining stable performance in terms of:
+- `remediation_agent.py`
+  - Reads RCA feed (`data/output/rca_feed.jsonl`).
+  - Recommends remediation actions from a remediation knowledge base.
+  - Writes enriched events to `data/output/remediation_feed.jsonl`.
+  - Hosts:
+    - WebSocket server for live updates
+    - HTTP server for the dashboard UI (`dashboard/index.html`)
 
-- Latency  
-- Jitter  
-- Packet Loss  
-- Throughput  
-- Bandwidth Utilization  
+### `data/`
+Contains mapping/config data and runtime outputs:
 
-is essential to ensure reliability, user satisfaction, and compliance with Service Level Agreements (SLAs).
+- `rca_mapping.json`
+  - Mapping between root causes and:
+    - suggested solutions
+    - cause tags
+  - Used by `detection_agent.py` RCA stage.
 
-Unlike traditional monitoring tools that focus primarily on reactive detection, QoSBuddy introduces predictive analytics and intelligent optimization capabilities to proactively prevent service degradation.
+- `output/` (created at runtime)
+  - `rca_feed.jsonl`: anomaly + RCA events from DetectionAgent
+  - `remediation_feed.jsonl`: RCA + remediation actions from RemediationAgent
 
-### The system provides:
+Other expected input files used by agents (typically placed under `data/`):
 
-- Real-time anomaly detection  
-- Predictive QoS analytics  
-- Intelligent resource optimization recommendations  
-- Interactive dashboards and automated AI-generated reports  
+- `time_series_kpi.csv` (stream + anomaly model training input)
+- `labeled_incidents.csv` (RCA classifier training input)
+- `cell_topology.csv` (neighbor relationships and topology for correlation/dashboard)
 
----
+### `dashboard/`
+Contains the live UI:
 
-## 2. Project Objectives
-
-### BO1 — QoS Monitoring
-
-**Business Objective (BO)**  
-Continuously assess and track the health of network services.
-
-**Data Science Objective (DSO)**  
-Design a QoS health scoring model that summarizes multiple network metrics into a single service quality indicator.
-
-**Key Metrics**
-- QoS Health Score (0–100)
-- Service availability (%)
-- Metric stability (variance over time)
-
-**Models**
-- **EWMA** → Smooths short-term fluctuations in real-time metrics  
-- **Hidden Markov Models (HMM)** → Models service states (Good / Degraded / Critical)  
-- **K-Means Clustering** → Groups similar QoS behavior patterns  
-
----
-
-### BO2 — QoS Detection & Prediction
-
-**Business Objective (BO)**  
-Detect QoS degradations early and anticipate future performance issues to minimize service impact.
-
-**Data Science Objective (DSO)**  
-Develop anomaly detection and time-series forecasting models for user-side QoS data.
-
-**Key Metrics**
-- Latency (RTT)
-- Jitter
-- Packet Loss (%)
-- Short-term predicted latency (t+1, t+5, t+10)
-- Degradation risk score
-
-**Models**
-- **Isolation Forest** → Unsupervised anomaly detection on noisy QoS data  
-- **Autoencoder** → Learns normal QoS patterns and flags deviations  
-- **One-Class SVM** → Detects anomalies when only normal data is available  
-- **LSTM / GRU** → Captures temporal dependencies in QoS time-series  
-- **ARIMA** → Interpretable statistical baseline for forecasting  
+- `index.html`
+  - Real-time operations dashboard.
+  - Receives WebSocket events from `remediation_agent.py`.
+  - Shows:
+    - severity counters
+    - KPI trend charts
+    - live feed cards
+    - remediation details
+    - topology and analytics views
 
 ---
 
-### BO3 — Autonomous QoS Optimization
+## 2) End-to-End Data Flow
 
-**Business Objective (BO)**  
-Automatically optimize network performance to maintain SLA compliance while minimizing operational cost.
-
-**Data Science Objective (DSO)**  
-Develop a prescriptive optimization engine that dynamically adjusts routing, bandwidth allocation, and resource scaling based on predicted QoS risks.
-
-**Key Metrics**
-- QoS improvement after action (%)
-- SLA violation reduction rate
-- Mean Time to Recovery (MTTR)
-
-**Models**
-- **Reinforcement Learning (DQN / Policy Gradient)** → Learns optimal network adjustment policies through feedback  
-- **Genetic Algorithms** → Finds near-optimal routing and allocation strategies under constraints  
-- **Linear / Constrained Optimization** → Ensures SLA, bandwidth, and cost constraints are respected  
-- **Multi-Armed Bandit** → Dynamically selects the best optimization strategy  
+1. DetectionAgent trains models from historical data (`--mode train`).
+2. DetectionAgent streams KPI rows and emits anomaly+RCA JSON lines to `data/output/rca_feed.jsonl`.
+3. RemediationAgent tails this feed and enriches each event with action plans.
+4. RemediationAgent pushes live events to the dashboard via WebSocket.
+5. Dashboard renders operations view (overview, topology, analytics) in real time.
 
 ---
 
-### BO4 — QoS Reporting & Insights
+## 3) How to Run
 
-**Business Objective (BO)**  
-Provide clear and actionable QoS insights for decision-makers.
+From repository root:
 
-**Data Science Objective (DSO)**  
-Develop explainable analytics models that translate technical QoS metrics into business-level insights.
+```bash
+python agents/detection_agent.py --mode all
+```
 
-**Key Metrics**
-- SLA compliance (%)
-- Mean degradation duration
-- Incident frequency
+This performs training + streaming and produces `data/output/rca_feed.jsonl`.
 
-**Models**
-- **Decision Trees** → Human-readable explanations  
-- **XGBoost** → Identifies key QoS impact factors with high accuracy  
-- **SHAP** → Explains model predictions and root causes  
+Then start remediation + dashboard:
 
-## 3. System Architecture
+```bash
+python agents/remediation_agent.py
+```
 
-QoSBuddy follows an Agent-Based Architecture composed of specialized components:
+Default endpoints:
 
-| Agent | Responsibility |
-|--------|----------------|
-| Monitoring Agent | Collects real-time QoS metrics |
-| Analysis Agent | Performs anomaly detection |
-| Prediction Agent | Forecasts QoS degradation |
-| Reporting Agent | Generates AI-based analytical reports |
-| Coordinator Agent | Manages escalation and optimization workflows |
+- Dashboard: `http://localhost:8080`
+- WebSocket: `ws://localhost:8765`
 
-Agents can be deployed centrally or distributed across network nodes depending on infrastructure requirements.
+Optional arguments:
+
+```bash
+python agents/detection_agent.py --mode train --sample-frac 0.15 --seq-len 16
+python agents/detection_agent.py --mode stream --chunk-size 500 --stream-delay 0.0
+python agents/remediation_agent.py --ws-port 9000 --http-port 9001 --tail-interval 0.5
+```
 
 ---
 
-## 4. Target Users
+## 4) Key Outputs
 
-- Telecommunication Companies  
-- Internet Service Providers (ISPs)  
-- Large Enterprises and Corporate Networks  
-- Data Centers and Cloud Providers  
-- Academic and Research Institutions  
-
----
-
-## 5. Sustainable Development Impact
-
-QoSBuddy contributes to the following Sustainable Development Goals (SDGs):
-
-- SDG 9 – Industry, Innovation and Infrastructure  
-- SDG 11 – Sustainable Cities and Communities  
-- SDG 12 – Responsible Consumption and Production  
-- SDG 8 – Decent Work and Economic Growth  
-
-By optimizing bandwidth utilization and reducing service disruptions, the system promotes more sustainable and resilient digital infrastructures.
+- `data/output/rca_feed.jsonl`
+  - Source of truth for anomaly and RCA events from DetectionAgent.
+- `data/output/remediation_feed.jsonl`
+  - Enriched remediation event stream used by dashboard and post-analysis.
+- `logs/detection_agent.log`
+- `logs/remediation_agent.log`
 
 ---
 
-## 6. Methodology
+## 5) Notes and Operational Tips
 
-The project follows the Team Data Science Process (TDSP):
+- If dashboard shows no events:
+  - confirm DetectionAgent is producing `rca_feed.jsonl`
+  - confirm RemediationAgent is running and WebSocket is connected
+- If RCA quality is poor:
+  - improve `data/labeled_incidents.csv`
+  - enrich `data/rca_mapping.json`
+- If neighbor escalation is missing:
+  - verify `data/cell_topology.csv` exists and has valid `neighbor_cells`
 
-1. Business Understanding  
-2. Data Acquisition and Exploration  
-3. Modeling  
-4. Deployment  
-5. Continuous Improvement  
-
----
-
-## 7. Core Features
-
-### Real-Time Monitoring
-- Latency, jitter, packet loss, and throughput tracking  
-- Application-level performance monitoring  
-
-### Predictive Analytics
-- Congestion forecasting  
-- SLA violation prediction  
-
-### Automated Optimization
-- Dynamic routing recommendations  
-- Bandwidth allocation strategies  
-
-### Alerting and Notifications
-- Threshold-based alerts  
-- Email and dashboard notifications  
-
-### Visualization and Reporting
-- Heatmaps  
-- Predictive performance graphs  
-- Automated AI-generated analytical reports  
-
-### Multi-Environment Support
-- Cloud environments  
-- On-premises infrastructures  
-- IoT-based networks  
-
----
-
-## 8. Non-Functional Requirements
-
-- High scalability  
-- Low processing latency  
-- 24/7 availability  
-- Secure data handling  
-- Modular and maintainable architecture  
-
----
-
-## 9. Differentiation
-
-QoSBuddy distinguishes itself from traditional monitoring tools by emphasizing:
-
-- Predictive rather than purely reactive monitoring  
-- AI-driven optimization mechanisms  
-- Automated root cause analysis  
-- Cross-environment intelligence  
-- Sustainability-aware decision support  
-
----
-
-## 10. Project Scope
-
-This prototype focuses on:
-
-- Software-based QoS monitoring and analytics  
-- AI-driven decision support systems  
-- Simulation and SDN-based optimization  
-
-Physical hardware deployment is outside the scope of this academic prototype.
-
----
-
-## 11. UI Prototype
-
-Figma Design:  
-https://www.figma.com/make/xUVuGo2nDWkZcw2MV2WSfV/QoSBuddy-System-Pages
-
----
-
-## 12. Planned Technology Stack
-
-- Python  
-- Kafka  
-- Spark or Flink  
-- Scikit-learn  
-- TensorFlow or PyTorch  
-- Streamlit or Dash  
-- Docker  
-
----
-
-## 13. Dataset
-
-Primary Benchmark Dataset:
-
-- UNSW-NB15  
-
----
-
-## 14. Future Vision
-
-- Industrial deployment readiness  
-- Edge AI agents  
-- Energy-aware optimization  
-- SDN controller integration  
-- SaaS-based platform version  
-
----
-
-## 15. License
-
-Educational and Research Prototype  
-
----
-
-## 16. Contributions
-
-This project is developed as part of an academic initiative.  
-Research collaborations and improvement proposals are welcome.
