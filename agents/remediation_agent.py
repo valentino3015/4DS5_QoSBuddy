@@ -10,10 +10,17 @@ Usage:
     python remediation_agent.py --ws-port 9000 --http-port 9001
     python remediation_agent.py --no-browser
     python remediation_agent.py --tail-interval 0.5
+    python remediation_agent.py --llm-backend gemini   # requires GEMINI_API_KEY
+    python remediation_agent.py --llm-backend ollama   # local Ollama
+    python remediation_agent.py --verbose              # detailed terminal trace
+
+Quiet console by default; essentials append to logs/remediation_stream.jsonl.
+Full audit: logs/remediation_agent.log
 """
 
 import os, sys, json, time, logging, argparse, threading, asyncio
 import webbrowser, http.server, socketserver, warnings, math
+import urllib.request, urllib.error
 from pathlib import Path
 from datetime import datetime
 from collections import deque
@@ -41,17 +48,49 @@ for d in [OUTPUT_DIR, LOG_DIR, DASHBOARD_DIR]:
 RCA_FEED         = OUTPUT_DIR / "rca_feed.jsonl"
 REMEDIATION_FEED = OUTPUT_DIR / "remediation_feed.jsonl"
 TOPOLOGY_PATH    = DATA_DIR / "cell_topology.csv"
+STREAM_ESSENTIAL_LOG = LOG_DIR / "remediation_stream.jsonl"
 
-# Logging
+# Logging: quiet console by default; full detail in remediation_agent.log; essentials in remediation_stream.jsonl
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-_sh  = logging.StreamHandler(sys.stdout)
-_fh  = logging.FileHandler(LOG_DIR / "remediation_agent.log", encoding="utf-8")
-_fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
-_sh.setFormatter(_fmt); _fh.setFormatter(_fmt)
-logging.basicConfig(level=logging.INFO, handlers=[_sh, _fh])
+_DETAILED_FMT = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+_CONSOLE_FMT  = logging.Formatter("%(message)s")
 log = logging.getLogger("RemediationAgent")
+log.handlers.clear()
+log.setLevel(logging.DEBUG)
+log.propagate = False
+
+_CONSOLE_VERBOSE = False
+
+
+def _configure_logging(verbose: bool) -> None:
+    """Console: warnings only by default; --verbose → INFO on terminal (full audit still in logs/)."""
+    global _CONSOLE_VERBOSE
+    _CONSOLE_VERBOSE = verbose
+    for h in list(log.handlers):
+        log.removeHandler(h)
+    sh = logging.StreamHandler(sys.stdout)
+    sh.setLevel(logging.INFO if verbose else logging.WARNING)
+    if verbose:
+        sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
+    else:
+        sh.setFormatter(_CONSOLE_FMT)
+    fh = logging.FileHandler(LOG_DIR / "remediation_agent.log", encoding="utf-8")
+    fh.setLevel(logging.DEBUG)
+    fh.setFormatter(_DETAILED_FMT)
+    log.addHandler(sh)
+    log.addHandler(fh)
+    for name in ("websockets", "websockets.server", "websockets.client", "websockets.protocol"):
+        logging.getLogger(name).setLevel(logging.WARNING)
+
+
+def clog(msg: str, *args) -> None:
+    """Mirror to console when --verbose; always persisted at DEBUG in file."""
+    if _CONSOLE_VERBOSE:
+        log.info(msg, *args)
+    else:
+        log.debug(msg, *args)
 
 # Knowledge Base
 REMEDIATION_KB = {
@@ -229,6 +268,171 @@ PRIORITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
 EFFORT_SCORE   = {"Low": 3, "Medium": 2, "High": 1}
 
 
+def _build_remediation_prompt(rca_event: dict, remediation: dict) -> str:
+    """Shared prompt for Ollama / Gemini — JSON output schema."""
+    primary = remediation.get("primary_action", {})
+    payload = {
+        "cell_id": rca_event.get("cell_id"),
+        "severity": rca_event.get("anomaly_severity"),
+        "anomaly_score": rca_event.get("anomaly_score"),
+        "kpi_snapshot": rca_event.get("kpi_snapshot", {}),
+        "rca": rca_event.get("rca", {}),
+        "rule_based_recommendation": remediation,
+    }
+    return (
+        "You are a telecom NOC remediation assistant.\n"
+        "Refine the rule-based recommendation with concise, safe and actionable guidance.\n"
+        "Return ONLY valid JSON with this schema:\n"
+        "{\n"
+        '  "summary": "short operational summary",\n'
+        '  "risk_level": "Low|Medium|High|Critical",\n'
+        '  "rollback_steps": ["step1", "step2"],\n'
+        '  "operator_notes": ["note1", "note2"],\n'
+        '  "revised_primary_action": {\n'
+        '    "action": "string",\n'
+        '    "steps": ["..."],\n'
+        '    "priority": "Low|Medium|High|Critical",\n'
+        '    "effort": "Low|Medium|High",\n'
+        '    "eta_hours": 1,\n'
+        '    "auto": false,\n'
+        '    "impact": "string"\n'
+        "  }\n"
+        "}\n"
+        "Rules:\n"
+        "- Keep at most 5 action steps.\n"
+        "- If severity is critical, force auto=false.\n"
+        "- Keep realistic ETA.\n\n"
+        f"INPUT_EVENT={json.dumps(payload, ensure_ascii=True)}\n"
+        f"CURRENT_PRIMARY_ACTION={json.dumps(primary, ensure_ascii=True)}\n"
+    )
+
+
+def _parse_llm_json_text(text: str) -> dict | None:
+    """Strip optional markdown fences and parse JSON."""
+    t = (text or "").strip()
+    if t.startswith("```"):
+        lines = t.split("\n")
+        if lines and lines[0].startswith("```"):
+            lines = lines[1:]
+        if lines and lines[-1].strip() == "```":
+            lines = lines[:-1]
+        t = "\n".join(lines).strip()
+    try:
+        return json.loads(t)
+    except json.JSONDecodeError:
+        return None
+
+
+class GeminiRemediationAdvisor:
+    """
+    Google Gemini (AI Studio / Generative Language API).
+    API key: set env GEMINI_API_KEY or GOOGLE_API_KEY — never commit keys.
+    """
+
+    def __init__(
+        self,
+        api_key: str,
+        model: str = "gemini-2.0-flash",
+        timeout_sec: int = 45,
+    ):
+        self.api_key = api_key
+        self.model = model
+        self.timeout_sec = timeout_sec
+        self._logged_failure = False
+
+    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
+        prompt = _build_remediation_prompt(rca_event, remediation)
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{self.model}:generateContent?key={self.api_key}"
+        )
+        body = {
+            "contents": [
+                {"role": "user", "parts": [{"text": prompt}]}
+            ],
+            "generationConfig": {
+                "temperature": 0.2,
+                "responseMimeType": "application/json",
+            },
+        }
+        req = urllib.request.Request(
+            url,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
+            log.debug("Gemini request failed: %s", e)
+            if not self._logged_failure:
+                log.warning(
+                    "Gemini unreachable — using rules-only refinements; "
+                    "per-request details in logs/remediation_agent.log (DEBUG). "
+                    "Use --verbose for console trace."
+                )
+                self._logged_failure = True
+            return None
+
+        try:
+            parts = raw["candidates"][0]["content"]["parts"]
+            text = "".join(p.get("text", "") for p in parts)
+        except (KeyError, IndexError, TypeError):
+            log.debug("Gemini response parse failed (missing candidates/parts)")
+            return None
+
+        parsed = _parse_llm_json_text(text)
+        if not parsed:
+            log.debug("Gemini returned non-JSON text")
+        return parsed
+
+
+class OllamaRemediationAdvisor:
+    """
+    Optional free local LLM advisor (Ollama backend).
+    It enriches recommendations but never blocks the baseline rules pipeline.
+    """
+    def __init__(self, model: str = "llama3.1:8b", endpoint: str = "http://localhost:11434/api/generate",
+                 timeout_sec: int = 25):
+        self.model = model
+        self.endpoint = endpoint
+        self.timeout_sec = timeout_sec
+        self._logged_failure = False
+
+    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
+        prompt = _build_remediation_prompt(rca_event, remediation)
+        body = {
+            "model": self.model,
+            "prompt": prompt,
+            "stream": False,
+            "format": "json",
+            "options": {"temperature": 0.2},
+        }
+        req = urllib.request.Request(
+            self.endpoint,
+            data=json.dumps(body).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
+                raw = json.loads(resp.read().decode("utf-8"))
+            answer = (raw.get("response") or "").strip()
+            if not answer:
+                return None
+            parsed = _parse_llm_json_text(answer)
+            return parsed
+        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
+            log.debug("Ollama request failed: %s", e)
+            if not self._logged_failure:
+                log.warning(
+                    "Ollama unreachable — using rules-only; see logs/remediation_agent.log. Use --verbose for console."
+                )
+                self._logged_failure = True
+            return None
+
+
 class RemediationEngine:
     def _score(self, action, confidence):
         p = PRIORITY_SCORE.get(action.get("priority", "Low"), 1)
@@ -290,6 +494,39 @@ class RemediationEngine:
         }
 
 
+def apply_llm_refinement(
+    remediation: dict, llm_out: dict, severity: str, provider: str = ""
+) -> dict:
+    """
+    Merge optional LLM output into base remediation in a guarded manner.
+    """
+    if not llm_out:
+        remediation["llm_enhanced"] = False
+        remediation["llm_provider"] = provider or None
+        return remediation
+
+    merged = deepcopy(remediation)
+    primary = merged.get("primary_action", {})
+    revised = llm_out.get("revised_primary_action", {})
+    if isinstance(revised, dict):
+        allowed = {"action", "steps", "priority", "effort", "eta_hours", "auto", "impact"}
+        for k in allowed:
+            if k in revised:
+                primary[k] = revised[k]
+        # Safety guardrail: critical anomalies must stay manual.
+        if str(severity).lower() == "critical":
+            primary["auto"] = False
+    merged["primary_action"] = primary
+
+    merged["llm_enhanced"] = True
+    merged["llm_summary"] = llm_out.get("summary", "")
+    merged["llm_risk_level"] = llm_out.get("risk_level", "")
+    merged["llm_rollback_steps"] = llm_out.get("rollback_steps", [])[:5]
+    merged["llm_operator_notes"] = llm_out.get("operator_notes", [])[:5]
+    merged["llm_provider"] = provider or None
+    return merged
+
+
 class DashboardState:
     def __init__(self):
         self._lock       = threading.Lock()
@@ -327,7 +564,7 @@ class DashboardState:
                         "type":        r.get("deployment_type", ""),
                         "active":      r.get("active", "") == "Yes",
                     })
-            log.info(f"  Topology loaded: {len(rows)} cells")
+            log.debug("Topology loaded: %s cells", len(rows))
             return rows
         except Exception as e:
             log.warning(f"Could not load topology: {e}")
@@ -384,7 +621,7 @@ WS_READY   = threading.Event()
 async def ws_handler(websocket):
     with WS_LOCK:
         WS_CLIENTS.add(websocket)
-    log.info(f"Dashboard connected ({len(WS_CLIENTS)} total)")
+    log.debug("Dashboard connected (%s clients)", len(WS_CLIENTS))
     try:
         await websocket.send(json.dumps(clean_nan(STATE.snapshot()), default=str))
         async for _ in websocket:
@@ -394,7 +631,7 @@ async def ws_handler(websocket):
     finally:
         with WS_LOCK:
             WS_CLIENTS.discard(websocket)
-        log.info(f"Dashboard disconnected ({len(WS_CLIENTS)} remaining)")
+        log.debug("Dashboard disconnected (%s clients)", len(WS_CLIENTS))
 
 
 async def _broadcast(msg):
@@ -422,8 +659,38 @@ def broadcast_event(event):
     asyncio.run_coroutine_threadsafe(_broadcast(msg), WS_LOOP)
 
 
+def append_stream_essential(
+    *,
+    phase: str,
+    out: dict,
+    remediation: dict,
+    llm_used: bool,
+) -> None:
+    """One compact JSON line per RCA→remediation step (non-redundant with remediation_feed.jsonl)."""
+    primary = remediation.get("primary_action") or {}
+    rec = {
+        "processed_at": out.get("processed_at"),
+        "phase": phase,
+        "rem_event_id": out.get("rem_event_id"),
+        "source_rca_id": out.get("source_rca_id"),
+        "timestamp": out.get("timestamp"),
+        "cell_id": out.get("cell_id"),
+        "severity": out.get("anomaly_severity"),
+        "cause": remediation.get("cause"),
+        "action": primary.get("action"),
+        "auto": bool(primary.get("auto")),
+        "llm_enhanced": bool(remediation.get("llm_enhanced")),
+        "llm_used_call": llm_used,
+    }
+    try:
+        with open(STREAM_ESSENTIAL_LOG, "a", encoding="utf-8") as f:
+            f.write(json.dumps(clean_nan(rec), default=str, ensure_ascii=False) + "\n")
+    except OSError as e:
+        log.warning("Could not write %s: %s", STREAM_ESSENTIAL_LOG, e)
+
+
 async def _ws_main(host, port):
-    log.info(f"WebSocket server on ws://{host}:{port}")
+    log.debug("WebSocket server ws://%s:%s", host, port)
     async with ws_serve(ws_handler, host, port):
         WS_READY.set()
         await asyncio.Future()
@@ -442,7 +709,7 @@ def start_http_server(port):
     class QuietHandler(http.server.SimpleHTTPRequestHandler):
         def log_message(self, fmt, *args): pass
     with socketserver.TCPServer(("", port), QuietHandler) as httpd:
-        log.info(f"HTTP server on http://localhost:{port}")
+        log.debug("HTTP server http://localhost:%s", port)
         httpd.serve_forever()
 
 
@@ -461,12 +728,14 @@ def prepare_dashboard(ws_port):
         content
     )
     html_path.write_text(content, encoding="utf-8")
-    log.info(f"Dashboard ready -> {html_path}")
+    log.debug("Dashboard patched -> %s", html_path)
 
 
 class FeedReader:
-    def __init__(self):
+    def __init__(self, llm_advisor=None, llm_provider: str = ""):
         self.engine = RemediationEngine()
+        self.llm_advisor = llm_advisor
+        self.llm_provider = llm_provider
         self.count  = 0
 
     def _process(self, line, phase):
@@ -480,6 +749,15 @@ class FeedReader:
 
         self.count += 1
         remediation = self.engine.recommend(rca_event)
+        llm_attempted = self.llm_advisor is not None
+        if self.llm_advisor is not None:
+            llm_out = self.llm_advisor.enrich(rca_event, remediation)
+            remediation = apply_llm_refinement(
+                remediation=remediation,
+                llm_out=llm_out,
+                severity=rca_event.get("anomaly_severity", "medium"),
+                provider=self.llm_provider,
+            )
 
         out = {
             "rem_event_id":     f"REM-{self.count:07d}",
@@ -508,34 +786,38 @@ class FeedReader:
         STATE.push(out)
         broadcast_event(out)
 
-        sev   = out["anomaly_severity"].upper()
+        append_stream_essential(
+            phase=phase,
+            out=out,
+            remediation=remediation,
+            llm_used=llm_attempted,
+        )
+
+        sev   = str(out["anomaly_severity"] or "").upper()
         cause = remediation["cause"]
         act   = remediation["primary_action"]
         mode  = "[AUTO]" if act["auto"] else "[MANUAL]"
         tag   = "[!!]" if sev in ("HIGH", "CRITICAL") else "[ ~ ]"
-        log.info(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act['action']} {mode}")
+        clog("%s [%s] %s | %s | %s %s", tag, sev, out["cell_id"], cause, act["action"], mode)
 
     def run(self, tail_interval):
         REMEDIATION_FEED.write_text("", encoding="utf-8")
+        STREAM_ESSENTIAL_LOG.write_text("", encoding="utf-8")
         pos = 0
 
         if RCA_FEED.exists():
-            log.info("=" * 60)
-            log.info("PHASE 1 - CATCH-UP")
-            log.info("=" * 60)
+            clog("Catch-up: reading existing rca_feed.jsonl …")
             with open(RCA_FEED, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 pos   = f.tell()
-            log.info(f"  Processing {len(lines):,} existing RCA events ...")
+            clog("Catch-up: %s RCA lines", f"{len(lines):,}")
             for line in lines:
                 self._process(line, "catch-up")
-            log.info(f"  Catch-up done ({self.count:,} events processed)")
+            clog("Catch-up done, %s events processed", f"{self.count:,}")
         else:
-            log.warning(f"rca_feed.jsonl not found at {RCA_FEED} - waiting for Agent 2 ...")
+            log.warning("rca_feed.jsonl not found at %s — waiting for Agent 2 …", RCA_FEED)
 
-        log.info("=" * 60)
-        log.info("PHASE 2 - LIVE TAIL  (Ctrl+C to stop)")
-        log.info("=" * 60)
+        clog("Live tail (Ctrl+C to stop)")
         while True:
             try:
                 if RCA_FEED.exists():
@@ -547,34 +829,53 @@ class FeedReader:
                         self._process(line, "live")
                 time.sleep(tail_interval)
             except KeyboardInterrupt:
-                log.info("Feed reader stopped.")
+                print("\n  Feed reader stopped.", flush=True)
                 break
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
-    p.add_argument("--http-port",     type=int,   default=8080)
+    p.add_argument("--http-port",     type=int,   default=8088)
     p.add_argument("--tail-interval", type=float, default=1.0)
     p.add_argument("--no-browser",    action="store_true")
+    p.add_argument(
+        "--llm-backend",
+        choices=["none", "ollama", "gemini"],
+        default="none",
+        help="LLM backend: none | ollama (local) | gemini (API key from env)",
+    )
+    p.add_argument("--use-llm",       action="store_true",
+                   help="Shortcut: same as --llm-backend ollama (legacy)")
+    p.add_argument("--llm-model",     type=str, default="llama3.1:8b",
+                   help="Ollama model name when using --llm-backend ollama")
+    p.add_argument("--gemini-model",  type=str, default="gemini-2.0-flash",
+                   help="Gemini model id when using --llm-backend gemini")
+    p.add_argument("--ollama-url",    type=str, default="http://localhost:11434/api/generate",
+                   help="Ollama generate endpoint")
+    p.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Print detailed logs to the terminal (default: quiet console, full detail in logs/)",
+    )
     return p.parse_args()
 
 
 def main():
     args = parse_args()
-    log.info("QoSBuddy RemediationAgent (Agent 3) starting")
-    log.info(f"  ws-port={args.ws_port} | http-port={args.http_port}")
+    _configure_logging(args.verbose)
+    clog("ws-port=%s http-port=%s", args.ws_port, args.http_port)
 
     prepare_dashboard(args.ws_port)
 
     ws_thread = threading.Thread(target=start_ws_thread, args=("localhost", args.ws_port), daemon=True)
     ws_thread.start()
-    log.info("Waiting for WebSocket server ...")
+    clog("Waiting for WebSocket server …")
     WS_READY.wait(timeout=10)
     if not WS_READY.is_set():
         log.error("WebSocket server did not start. Exiting.")
         sys.exit(1)
-    log.info("WebSocket server ready [OK]")
+    clog("WebSocket ready")
 
     http_thread = threading.Thread(target=start_http_server, args=(args.http_port,), daemon=True)
     http_thread.start()
@@ -584,12 +885,54 @@ def main():
     if not args.no_browser:
         webbrowser.open(url)
 
-    log.info("=" * 60)
-    log.info(f"  Dashboard : {url}")
-    log.info(f"  WebSocket : ws://localhost:{args.ws_port}")
-    log.info("=" * 60)
+    backend = args.llm_backend
+    if args.use_llm and backend == "none":
+        backend = "ollama"
 
-    FeedReader().run(tail_interval=args.tail_interval)
+    llm_advisor = None
+    llm_provider = ""
+    llm_label = "off"
+    if backend == "ollama":
+        llm_provider = "ollama"
+        llm_advisor = OllamaRemediationAdvisor(
+            model=args.llm_model,
+            endpoint=args.ollama_url,
+        )
+        llm_label = f"ollama ({args.llm_model})"
+        clog("LLM: ollama model=%s", args.llm_model)
+    elif backend == "gemini":
+        api_key = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+        if not api_key:
+            log.warning(
+                "GEMINI_API_KEY / GOOGLE_API_KEY not set — LLM disabled (rules only). "
+                "PowerShell: $env:GEMINI_API_KEY = 'your_key'"
+            )
+            llm_label = "off (no API key)"
+        else:
+            llm_provider = "gemini"
+            llm_advisor = GeminiRemediationAdvisor(
+                api_key=api_key,
+                model=args.gemini_model,
+            )
+            llm_label = f"gemini ({args.gemini_model})"
+            clog("LLM: gemini model=%s", args.gemini_model)
+    else:
+        llm_label = "off (rules only)"
+        clog("LLM: disabled")
+
+    print(
+        f"\n  Dashboard       {url}\n"
+        f"  WebSocket       ws://localhost:{args.ws_port}\n"
+        f"  LLM             {llm_label}\n"
+        f"  Stream summary  {STREAM_ESSENTIAL_LOG}\n"
+        f"  Full audit log  {LOG_DIR / 'remediation_agent.log'}\n"
+        f"  Console detail  {'on (--verbose)' if args.verbose else 'off — add --verbose for trace'}\n",
+        flush=True,
+    )
+
+    FeedReader(llm_advisor=llm_advisor, llm_provider=llm_provider).run(
+        tail_interval=args.tail_interval
+    )
 
 
 if __name__ == "__main__":

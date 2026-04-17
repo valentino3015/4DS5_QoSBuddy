@@ -113,6 +113,7 @@ KPI_FEATURES_INCIDENTS = [
 # Runtime RCA feature list — may be overwritten during training
 KPI_FEATURES_RCA = KPI_FEATURES_INCIDENTS
 
+
 # ─── Rule-based thresholds (domain knowledge) ─────────────────────────────────
 THRESHOLDS = {
     "RSRP_dBm":            {"min": -110, "label": "Poor coverage"},
@@ -999,13 +1000,43 @@ def parse_args():
                    help="Filter stream to a specific cell_id (optional)")
     p.add_argument("--chunk-size",  type=int,   default=500,
                    help="CSV chunk size for streaming (default 500)")
+    p.add_argument(
+        "--kpi-csv",
+        type=str,
+        default=None,
+        help="Path to KPI time-series CSV (default: data/time_series_kpi.csv)",
+    )
+    p.add_argument(
+        "--incidents-csv",
+        type=str,
+        default=None,
+        help="Path to labeled incidents CSV (default: data/labeled_incidents.csv)",
+    )
     return p.parse_args()
 
 
 def main():
+    global TS_KPI_PATH, INCIDENTS_PATH
     args = parse_args()
+    if args.kpi_csv:
+        TS_KPI_PATH = Path(args.kpi_csv).resolve()
+    if args.incidents_csv:
+        INCIDENTS_PATH = Path(args.incidents_csv).resolve()
+
     log.info("QoSBuddy DetectionAgent starting")
     log.info(f"  mode={args.mode} | seq_len={args.seq_len} | sample_frac={args.sample_frac}")
+    log.info(f"  kpi_csv={TS_KPI_PATH} | incidents_csv={INCIDENTS_PATH}")
+
+    if args.mode in ("train", "all", "stream"):
+        if not TS_KPI_PATH.exists():
+            log.error(f"Fichier KPI introuvable: {TS_KPI_PATH}")
+            log.error("Placez time_series_kpi.csv dans data/ ou passez --kpi-csv chemin/vers/fichier.csv")
+            sys.exit(1)
+    if args.mode in ("train", "all"):
+        if not INCIDENTS_PATH.exists():
+            log.error(f"Fichier incidents introuvable: {INCIDENTS_PATH}")
+            log.error("Placez labeled_incidents.csv dans data/ ou passez --incidents-csv chemin/vers/fichier.csv")
+            sys.exit(1)
 
     if args.mode in ("train", "all"):
         trainer = BatchTrainer(seq_len=args.seq_len, sample_frac=args.sample_frac)

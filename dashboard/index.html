@@ -158,7 +158,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 .card-sev-pill.medium{background:rgba(240,200,48,0.14);color:var(--yellow);border:1px solid rgba(240,200,48,0.3)}
 .card-sev-pill.low{background:rgba(40,216,152,0.12);color:var(--green);border:1px solid rgba(40,216,152,0.3)}
 .card-cause{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px;line-height:1.4}
-.card-action{font-size:11px;color:var(--textmid);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.card-action{font-size:11px;color:var(--textmid);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .card-foot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:7px;
   border-top:1px solid rgba(62,168,255,0.06)}
 .card-mode{font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:3px 8px;
@@ -565,7 +565,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 </div><!-- /app -->
 
 <script>
-const WS_PORT = 8765;
+const WS_PORT = 8766;
 const WS_URL  = 'ws://localhost:' + WS_PORT;
 const MAX_PTS = 40, MAX_CARDS = 100;
 
