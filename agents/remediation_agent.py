@@ -554,7 +554,7 @@ class FeedReader:
 def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
-    p.add_argument("--http-port",     type=int,   default=8080)
+    p.add_argument("--http-port",     type=int,   default=5000) #changed this from 8080 to 5000
     p.add_argument("--tail-interval", type=float, default=1.0)
     p.add_argument("--no-browser",    action="store_true")
     return p.parse_args()
