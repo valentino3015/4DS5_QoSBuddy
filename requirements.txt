@@ -7,3 +7,4 @@ ping3
 numpy
 pymysql
 requests
+collector

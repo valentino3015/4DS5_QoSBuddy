@@ -24,7 +24,6 @@ METRICS_COLUMNS: Tuple[str, ...] = (
     "throughput_up",
     "bandwidth_utilization",
     "retransmission_rate",
-    "response_time",
     "http_error_rate",
     "availability",
 )
