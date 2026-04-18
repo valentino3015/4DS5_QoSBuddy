@@ -6,15 +6,14 @@ scores remediation actions, and streams everything to a live browser
 dashboard over WebSocket + HTTP.
 
 Usage:
-    python agents/remediation_agent.py
-    python agents/remediation_agent.py --ws-port 9000 --http-port 9001
-    python agents/remediation_agent.py --no-browser
-    python agents/remediation_agent.py --tail-interval 0.5
+    python remediation_agent.py
+    python remediation_agent.py --ws-port 9000 --http-port 9001
+    python remediation_agent.py --no-browser
+    python remediation_agent.py --tail-interval 0.5
 """
 
 import os, sys, json, time, logging, argparse, threading, asyncio
-import webbrowser, http.server, socketserver, warnings
-import math
+import webbrowser, http.server, socketserver, warnings, math
 from pathlib import Path
 from datetime import datetime
 from collections import deque
@@ -41,6 +40,7 @@ for d in [OUTPUT_DIR, LOG_DIR, DASHBOARD_DIR]:
 
 RCA_FEED         = OUTPUT_DIR / "rca_feed.jsonl"
 REMEDIATION_FEED = OUTPUT_DIR / "remediation_feed.jsonl"
+TOPOLOGY_PATH    = DATA_DIR / "cell_topology.csv"
 
 # Logging
 if hasattr(sys.stdout, "reconfigure"):
@@ -235,27 +235,39 @@ class RemediationEngine:
         e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
         return round(p * e * (confidence / 100.0), 3)
 
-    def _summary(self, cause, action, cell_id, severity):
-        mode = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
-        eta  = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
+    def _summary(self, cause, action, cell_id, severity, neighbour_escalated=False):
+        mode    = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
+        eta     = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
+        cluster = " This is a CLUSTER EVENT — multiple adjacent cells are affected simultaneously."                   if neighbour_escalated else ""
         return (
-            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}. "
+            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}.{cluster} "
             f"The recommended fix is to {action['action'].lower()}, which {mode}. "
             f"Expected resolution time is {eta}. "
             f"Once applied, this should {action['impact'].lower()}."
         )
 
     def recommend(self, rca_event):
-        rca        = rca_event.get("rca", {})
-        cause      = rca.get("primary_cause", "")
-        confidence = float(rca.get("confidence_pct", 50.0))
-        severity   = rca_event.get("anomaly_severity", "medium")
-        cell_id    = rca_event.get("cell_id", "unknown")
-        ranked     = rca.get("ranked_causes", [])
+        rca                 = rca_event.get("rca", {})
+        cause               = rca.get("primary_cause", "")
+        confidence          = float(rca.get("confidence_pct", 50.0))
+        severity            = rca_event.get("anomaly_severity", "medium")
+        cell_id             = rca_event.get("cell_id", "unknown")
+        ranked              = rca.get("ranked_causes", [])
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
 
         action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
         action["score"]   = self._score(action, confidence)
-        action["summary"] = self._summary(cause, action, cell_id, severity)
+        action["summary"] = self._summary(cause, action, cell_id, severity,
+                                          neighbour_escalated)
+
+        # For cluster events, prepend a mandatory NOC notification step
+        if neighbour_escalated:
+            action["steps"] = [
+                "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
+                "Open a P1 incident ticket and assign to senior RF engineer",
+            ] + action["steps"]
+            action["priority"] = "Critical"
+            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
 
         alternatives = []
         for alt in ranked[1:4]:
@@ -268,11 +280,13 @@ class RemediationEngine:
             alternatives.append(alt_action)
 
         return {
-            "cause":            cause,
-            "confidence_pct":   confidence,
-            "primary_action":   action,
-            "alternatives":     alternatives,
-            "similar_resolved": rca.get("similar_incidents", []),
+            "cause":               cause,
+            "confidence_pct":      confidence,
+            "primary_action":      action,
+            "alternatives":        alternatives,
+            "similar_resolved":    rca.get("similar_incidents", []),
+            "neighbour_escalated": neighbour_escalated,
+            "is_cluster_event":    neighbour_escalated,
         }
 
 
@@ -284,6 +298,40 @@ class DashboardState:
         self.cell_status = {}
         self.stats       = dict(total_anomalies=0, critical=0, high=0,
                                 medium=0, low=0, auto_resolved=0, manual_pending=0)
+        self.topology    = self._load_topology()
+
+    @staticmethod
+    def _load_topology():
+        """Load cell_topology.csv into a list of dicts for the dashboard."""
+        if not TOPOLOGY_PATH.exists():
+            log.warning(f"Topology file not found at {TOPOLOGY_PATH}")
+            return []
+        try:
+            import csv
+            rows = []
+            with open(TOPOLOGY_PATH, newline='', encoding='utf-8') as f:
+                reader = csv.DictReader(f)
+                for r in reader:
+                    rows.append({
+                        "cell_id":     r.get("cell_id", ""),
+                        "site_id":     r.get("site_id", ""),
+                        "region":      r.get("region", ""),
+                        "lat":         float(r.get("latitude", 0) or 0),
+                        "lng":         float(r.get("longitude", 0) or 0),
+                        "vendor":      r.get("vendor", ""),
+                        "band":        r.get("nr_band", ""),
+                        "bw":          r.get("bandwidth_MHz", ""),
+                        "mimo":        r.get("mimo_config", ""),
+                        "slice":       r.get("network_slice", ""),
+                        "neighbors":   [n.strip() for n in (r.get("neighbor_cells", "") or "").split(";") if n.strip()],
+                        "type":        r.get("deployment_type", ""),
+                        "active":      r.get("active", "") == "Yes",
+                    })
+            log.info(f"  Topology loaded: {len(rows)} cells")
+            return rows
+        except Exception as e:
+            log.warning(f"Could not load topology: {e}")
+            return []
 
     def push(self, event):
         with self._lock:
@@ -322,6 +370,7 @@ class DashboardState:
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
                 "events":      list(self.events)[-100:],
+                "topology":    self.topology,
             }
 
 
@@ -356,14 +405,14 @@ async def _broadcast(msg):
 
 
 def clean_nan(obj):
+    """Recursively replace NaN floats with None so json.dumps never fails."""
     if isinstance(obj, float) and math.isnan(obj):
         return None
-    elif isinstance(obj, dict):
+    if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    if isinstance(obj, list):
         return [clean_nan(v) for v in obj]
     return obj
-
 
 
 def broadcast_event(event):
@@ -398,13 +447,19 @@ def start_http_server(port):
 
 
 def prepare_dashboard(ws_port):
+    import re
     html_path = DASHBOARD_DIR / "index.html"
     if not html_path.exists():
         log.error(f"Dashboard index.html not found at {html_path}")
         log.error("Place the dashboard/index.html file in the project root dashboard/ folder.")
         sys.exit(1)
     content = html_path.read_text(encoding="utf-8")
-    content = content.replace("__WS_PORT__", str(ws_port))
+    # Replace either the __WS_PORT__ placeholder or a previously injected port number
+    content = re.sub(
+        r'const WS_PORT\s*=\s*(?:__WS_PORT__|\d+)\s*;',
+        f'const WS_PORT = {ws_port};',
+        content
+    )
     html_path.write_text(content, encoding="utf-8")
     log.info(f"Dashboard ready -> {html_path}")
 
