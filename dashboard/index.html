@@ -149,7 +149,8 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 .card.low{border-color:rgba(40,216,152,0.18);background:linear-gradient(135deg,rgba(40,216,152,0.05) 0%,rgba(40,216,152,0.015) 100%)}
 .card.low::before{background:var(--green);box-shadow:0 0 8px rgba(40,216,152,0.4)}
 .card.low:hover{background:linear-gradient(135deg,rgba(40,216,152,0.09) 0%,rgba(40,216,152,0.03) 100%);box-shadow:0 4px 20px rgba(40,216,152,0.12);border-color:rgba(40,216,152,0.3)}
-.card-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.card-row1{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;gap:8px}
+.card-row1-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .card-cell{font-family:var(--mono);font-size:12px;color:var(--accent2);font-weight:600;letter-spacing:0.5px}
 .card-sev-pill{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:1.5px;
   padding:3px 9px;border-radius:4px;text-transform:uppercase}
@@ -276,6 +277,18 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 .tag{font-family:var(--mono);font-size:8px;letter-spacing:1px;padding:3px 8px;border-radius:3px;
   text-transform:uppercase;background:rgba(0,200,224,0.08);border:1px solid rgba(0,200,224,0.2);color:var(--cyan)}
 .tag.cluster-tag{background:rgba(240,62,90,0.1);border-color:rgba(240,62,90,0.3);color:var(--red)}
+.card-llm{font-family:var(--mono);font-size:7px;font-weight:600;letter-spacing:1px;padding:2px 6px;border-radius:3px;
+  background:rgba(138,92,246,0.15);border:1px solid rgba(138,92,246,0.35);color:#c4b5fd;text-transform:uppercase}
+.llm-panel{border:1px solid rgba(138,92,246,0.2);border-radius:var(--r);background:linear-gradient(135deg,rgba(30,20,50,0.5) 0%,rgba(14,31,56,0.4) 100%);
+  padding:12px 14px}
+.llm-panel .dsec-title{border-bottom-color:rgba(138,92,246,0.2);margin-bottom:8px;padding-bottom:6px}
+.llm-badge{font-family:var(--mono);font-size:8px;font-weight:600;letter-spacing:1px;padding:2px 8px;border-radius:4px;
+  background:rgba(138,92,246,0.2);color:#ddd6fe;border:1px solid rgba(138,92,246,0.35);text-transform:uppercase}
+.llm-summary{font-size:12px;line-height:1.65;color:var(--text);margin-bottom:10px}
+.llm-risk{font-family:var(--mono);font-size:10px;color:var(--yellow);margin-bottom:8px}
+.llm-sub{font-family:var(--mono);font-size:8px;letter-spacing:2px;color:var(--textdim);text-transform:uppercase;margin:10px 0 6px}
+.llm-list{margin:0;padding-left:18px;color:var(--textmid);font-size:11px;line-height:1.55}
+.llm-list li{margin-bottom:4px}
 ::-webkit-scrollbar{width:3px;height:3px}
 ::-webkit-scrollbar-track{background:transparent}
 ::-webkit-scrollbar-thumb{background:var(--navy5);border-radius:2px}
@@ -565,7 +578,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 </div><!-- /app -->
 
 <script>
-const WS_PORT = 8766;
+const WS_PORT = 8765;
 const WS_URL  = 'ws://localhost:' + WS_PORT;
 const MAX_PTS = 40, MAX_CARDS = 100;
 
@@ -692,6 +705,11 @@ function renderMap() {
 }
 
 let feedFilter=null;
+function esc(s){
+  if(s==null||s==='')return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function filterFeed(id) {
   feedFilter=feedFilter===id?null:id; feedPage=0;
   const bar=document.getElementById('cell-filter-bar');
@@ -706,12 +724,14 @@ function buildCard(evt, animate) {
   const sev=evt.anomaly_severity||'low', rem=evt.remediation||{}, act=rem.primary_action||{};
   const cause=rem.cause||(evt.rca&&evt.rca.primary_cause)||'Unknown';
   const isCluster=evt.neighbour_escalated||rem.is_cluster_event||rem.neighbour_escalated;
+  const llmOn=rem.llm_enhanced===true;
   const ts=(evt.timestamp||'').slice(11,19);
   const card=document.createElement('div');
   card.className='card '+sev+(animate?' card-animate':'');
   card.innerHTML=
     '<div class="card-row1"><span class="card-cell">'+(evt.cell_id||'?')+'</span>'+
-    '<span class="card-sev-pill '+sev+'">'+sev+'</span></div>'+
+    '<span class="card-row1-right">'+(llmOn?'<span class="card-llm">AI</span>':'')+
+    '<span class="card-sev-pill '+sev+'">'+sev+'</span></span></div>'+
     '<div class="card-cause">'+cause+'</div>'+
     '<div class="card-action">'+(act.action||'')+'</div>'+
     '<div class="card-foot">'+
@@ -872,12 +892,29 @@ function showDetail(evt) {
     ['ETA',act.eta_hours!=null?act.eta_hours+'h':'&mdash;'],
     ['Mode','<span style="color:'+(act.auto?'var(--green)':'var(--orange)')+'">'+
       (act.auto?'Automatic':'Manual')+'</span>'],
+    ['LLM',rem.llm_enhanced?('<span style="color:#c4b5fd">'+esc(rem.llm_provider||'enhanced')+'</span>'):'&mdash;'],
   ].map(([k,v])=>'<div class="meta-item"><div class="meta-k">'+k+'</div><div class="meta-v">'+v+'</div></div>').join('');
+
+  let llmHtml='';
+  if(rem.llm_enhanced||rem.llm_summary){
+    const prov=esc((rem.llm_provider||'LLM'));
+    const rolls=(rem.llm_rollback_steps||[]).filter(Boolean).map(s=>'<li>'+esc(s)+'</li>').join('');
+    const notes=(rem.llm_operator_notes||[]).filter(Boolean).map(s=>'<li>'+esc(s)+'</li>').join('');
+    llmHtml='<div class="dsec llm-panel"><div class="dsec-title">LLM insight <span class="llm-badge">'+prov+'</span></div>';
+    if(rem.llm_summary) llmHtml+='<div class="llm-summary">'+esc(rem.llm_summary)+'</div>';
+    if(rem.llm_risk_level) llmHtml+='<div class="llm-risk">Assessed risk: <b>'+esc(rem.llm_risk_level)+'</b></div>';
+    if(rolls) llmHtml+='<div class="llm-sub">Rollback steps</div><ul class="llm-list">'+rolls+'</ul>';
+    if(notes) llmHtml+='<div class="llm-sub">Operator notes</div><ul class="llm-list">'+notes+'</ul>';
+    if(!rem.llm_summary&&!rem.llm_risk_level&&!rolls&&!notes)
+      llmHtml+='<div class="llm-summary" style="opacity:.75">Refinement applied to primary action (see steps).</div>';
+    llmHtml+='</div>';
+  }
 
   document.getElementById('detail-body').innerHTML=
     (isCluster?'<div class="cluster-banner">Cluster Event &mdash; Multiple Adjacent Cells Affected</div>':'')+
     '<div class="dsec"><div class="dsec-title">Summary</div>'+
     '<div class="summary-box">'+(act.summary||'No summary available.')+'</div></div>'+
+    llmHtml+
     '<div class="dsec"><div class="dsec-title">Event Info</div>'+
     '<div class="meta-grid">'+metaHtml+'</div></div>'+
     (tags?'<div class="dsec"><div class="dsec-title">RCA Tags</div><div class="tags">'+tags+'</div></div>':'')+

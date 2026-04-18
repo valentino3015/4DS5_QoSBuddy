@@ -327,7 +327,10 @@ class GeminiRemediationAdvisor:
     """
     Google Gemini (AI Studio / Generative Language API).
     API key: set env GEMINI_API_KEY or GOOGLE_API_KEY — never commit keys.
+    Uses header x-goog-api-key (recommended); falls back if JSON MIME mode returns 400.
     """
+
+    _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
 
     def __init__(
         self,
@@ -340,51 +343,98 @@ class GeminiRemediationAdvisor:
         self.timeout_sec = timeout_sec
         self._logged_failure = False
 
-    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
-        prompt = _build_remediation_prompt(rca_event, remediation)
-        url = (
-            f"https://generativelanguage.googleapis.com/v1beta/models/"
-            f"{self.model}:generateContent?key={self.api_key}"
-        )
+    def _generate_raw(self, prompt: str, generation_config: dict) -> dict | None:
+        """POST generateContent; returns parsed JSON body or None on failure."""
+        url = self._GEMINI_URL.format(model=self.model)
         body = {
-            "contents": [
-                {"role": "user", "parts": [{"text": prompt}]}
-            ],
-            "generationConfig": {
-                "temperature": 0.2,
-                "responseMimeType": "application/json",
-            },
+            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
+            "generationConfig": generation_config,
         }
+        data = json.dumps(body).encode("utf-8")
         req = urllib.request.Request(
             url,
-            data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
+            data=data,
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": self.api_key,
+            },
             method="POST",
         )
         try:
             with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
-                raw = json.loads(resp.read().decode("utf-8"))
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
-            log.debug("Gemini request failed: %s", e)
+                return json.loads(resp.read().decode("utf-8"))
+        except json.JSONDecodeError as e:
+            log.debug("Gemini invalid JSON response: %s", e)
+            return None
+        except urllib.error.HTTPError as e:
+            err_bytes = e.read()
+            try:
+                err_json = json.loads(err_bytes.decode("utf-8"))
+                msg = err_json.get("error", {}).get("message", err_bytes.decode("utf-8", errors="replace")[:800])
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                msg = err_bytes.decode("utf-8", errors="replace")[:800]
+            log.debug("Gemini HTTP %s: %s", e.code, msg)
+            self._last_http_code = e.code
+            self._last_http_msg = msg
+            return None
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            log.debug("Gemini network error: %s", e)
+            self._last_http_code = None
+            self._last_http_msg = str(e)
+            return None
+
+    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
+        prompt = _build_remediation_prompt(rca_event, remediation)
+        self._last_http_code = None
+        self._last_http_msg = ""
+
+        # Prefer structured JSON output; some keys/models return 400 — retry without responseMimeType.
+        configs = [
+            {"temperature": 0.2, "responseMimeType": "application/json"},
+            {"temperature": 0.2},
+        ]
+        raw = None
+        for i, gen_cfg in enumerate(configs):
+            raw = self._generate_raw(prompt, gen_cfg)
+            if raw is not None:
+                break
+            if i == 0 and getattr(self, "_last_http_code", None) == 400:
+                log.debug("Gemini: retrying without JSON responseMimeType")
+
+        if raw is None:
             if not self._logged_failure:
+                hint = ""
+                code = getattr(self, "_last_http_code", None)
+                msg = (self._last_http_msg or "")[:300]
+                if code == 404:
+                    hint = " Model not found — try: --gemini-model gemini-1.5-flash or gemini-2.5-flash"
+                elif code == 403:
+                    hint = " Check API key and that Generative Language API is enabled for the key (Google AI Studio)."
+                elif code == 429:
+                    hint = " Rate limit — wait or reduce volume; avoid --llm-on-catch-up on large feeds."
+                elif code == 400 and "API key" in msg:
+                    hint = " Invalid or restricted API key."
                 log.warning(
-                    "Gemini unreachable — using rules-only refinements; "
-                    "per-request details in logs/remediation_agent.log (DEBUG). "
-                    "Use --verbose for console trace."
+                    "Gemini request failed (%s). %s — rules-only refinements.%s",
+                    code if code is not None else "network",
+                    msg or "no detail",
+                    hint,
                 )
                 self._logged_failure = True
+            else:
+                log.debug("Gemini request failed again: %s", self._last_http_msg[:200] if self._last_http_msg else "")
             return None
 
         try:
             parts = raw["candidates"][0]["content"]["parts"]
             text = "".join(p.get("text", "") for p in parts)
         except (KeyError, IndexError, TypeError):
-            log.debug("Gemini response parse failed (missing candidates/parts)")
+            log.debug("Gemini response parse failed (missing candidates/parts): %s", raw)
             return None
 
         parsed = _parse_llm_json_text(text)
         if not parsed:
-            log.debug("Gemini returned non-JSON text")
+            log.debug("Gemini returned non-JSON text (first 400 chars): %s", (text or "")[:400])
         return parsed
 
 
@@ -732,10 +782,17 @@ def prepare_dashboard(ws_port):
 
 
 class FeedReader:
-    def __init__(self, llm_advisor=None, llm_provider: str = ""):
+    def __init__(
+        self,
+        llm_advisor=None,
+        llm_provider: str = "",
+        *,
+        llm_on_catch_up: bool = False,
+    ):
         self.engine = RemediationEngine()
         self.llm_advisor = llm_advisor
         self.llm_provider = llm_provider
+        self.llm_on_catch_up = llm_on_catch_up
         self.count  = 0
 
     def _process(self, line, phase):
@@ -749,15 +806,17 @@ class FeedReader:
 
         self.count += 1
         remediation = self.engine.recommend(rca_event)
-        llm_attempted = self.llm_advisor is not None
-        if self.llm_advisor is not None:
-            llm_out = self.llm_advisor.enrich(rca_event, remediation)
-            remediation = apply_llm_refinement(
-                remediation=remediation,
-                llm_out=llm_out,
-                severity=rca_event.get("anomaly_severity", "medium"),
-                provider=self.llm_provider,
-            )
+        # One Gemini/Ollama HTTP call per event — catch-up can be thousands of lines → rate limits / cost.
+        run_llm = self.llm_advisor is not None and (
+            phase == "live" or self.llm_on_catch_up
+        )
+        llm_out = self.llm_advisor.enrich(rca_event, remediation) if run_llm else None
+        remediation = apply_llm_refinement(
+            remediation=remediation,
+            llm_out=llm_out,
+            severity=rca_event.get("anomaly_severity", "medium"),
+            provider=self.llm_provider,
+        )
 
         out = {
             "rem_event_id":     f"REM-{self.count:07d}",
@@ -790,7 +849,7 @@ class FeedReader:
             phase=phase,
             out=out,
             remediation=remediation,
-            llm_used=llm_attempted,
+            llm_used=run_llm,
         )
 
         sev   = str(out["anomaly_severity"] or "").upper()
@@ -858,6 +917,11 @@ def parse_args():
         action="store_true",
         help="Print detailed logs to the terminal (default: quiet console, full detail in logs/)",
     )
+    p.add_argument(
+        "--llm-on-catch-up",
+        action="store_true",
+        help="Call the LLM for every historical line during catch-up (default: LLM only on new live lines; avoids API floods)",
+    )
     return p.parse_args()
 
 
@@ -920,19 +984,23 @@ def main():
         llm_label = "off (rules only)"
         clog("LLM: disabled")
 
+    llm_catch = bool(llm_advisor and args.llm_on_catch_up)
     print(
         f"\n  Dashboard       {url}\n"
         f"  WebSocket       ws://localhost:{args.ws_port}\n"
         f"  LLM             {llm_label}\n"
+        f"  LLM catch-up    {'on (--llm-on-catch-up)' if llm_catch else 'off (live tail only — use --llm-on-catch-up to enrich history)'}\n"
         f"  Stream summary  {STREAM_ESSENTIAL_LOG}\n"
         f"  Full audit log  {LOG_DIR / 'remediation_agent.log'}\n"
         f"  Console detail  {'on (--verbose)' if args.verbose else 'off — add --verbose for trace'}\n",
         flush=True,
     )
 
-    FeedReader(llm_advisor=llm_advisor, llm_provider=llm_provider).run(
-        tail_interval=args.tail_interval
-    )
+    FeedReader(
+        llm_advisor=llm_advisor,
+        llm_provider=llm_provider,
+        llm_on_catch_up=args.llm_on_catch_up,
+    ).run(tail_interval=args.tail_interval)
 
 
 if __name__ == "__main__":
