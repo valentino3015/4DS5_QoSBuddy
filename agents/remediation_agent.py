@@ -21,10 +21,12 @@ Full audit: logs/remediation_agent.log
 import os, sys, json, time, logging, argparse, threading, asyncio
 import webbrowser, http.server, socketserver, warnings, math
 import urllib.request, urllib.error
+import torch
 from pathlib import Path
 from datetime import datetime
 from collections import deque
 from copy import deepcopy
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 warnings.filterwarnings("ignore")
 
@@ -322,7 +324,26 @@ def _parse_llm_json_text(text: str) -> dict | None:
     except json.JSONDecodeError:
         return None
 
+class LocalPhi2Advisor:
+    def __init__(self, model_path="lora-anomaly-model"):
+        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
+        self.model = AutoModelForCausalLM.from_pretrained(model_path)
 
+    def enrich(self, rca_event, remediation):
+        prompt = _build_remediation_prompt(rca_event, remediation)
+
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True)
+        
+        with torch.no_grad():
+            outputs = self.model.generate(
+                **inputs,
+                max_new_tokens=200,
+                temperature=0.2
+            )
+
+        text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
+
+        return _parse_llm_json_text(text)
 class GeminiRemediationAdvisor:
     """
     Google Gemini (AI Studio / Generative Language API).
@@ -806,10 +827,14 @@ class FeedReader:
 
         self.count += 1
         remediation = self.engine.recommend(rca_event)
-        # One Gemini/Ollama HTTP call per event — catch-up can be thousands of lines → rate limits / cost.
-        run_llm = self.llm_advisor is not None and (
-            phase == "live" or self.llm_on_catch_up
-        )
+
+
+        run_llm = (
+            self.llm_advisor is not None and
+            phase == "live" and
+            rca_event.get("anomaly_severity", "").lower() in ["high", "critical"]
+            )
+
         llm_out = self.llm_advisor.enrich(rca_event, remediation) if run_llm else None
         remediation = apply_llm_refinement(
             remediation=remediation,
@@ -900,7 +925,7 @@ def parse_args():
     p.add_argument("--no-browser",    action="store_true")
     p.add_argument(
         "--llm-backend",
-        choices=["none", "ollama", "gemini"],
+        choices=["none", "ollama", "gemini", "phi2"],
         default="none",
         help="LLM backend: none | ollama (local) | gemini (API key from env)",
     )
@@ -980,6 +1005,11 @@ def main():
             )
             llm_label = f"gemini ({args.gemini_model})"
             clog("LLM: gemini model=%s", args.gemini_model)
+    elif backend == "phi2":
+        llm_provider = "phi2-local"
+        llm_advisor = LocalPhi2Advisor()
+        llm_label = "phi-2 (fine-tuned)"
+    
     else:
         llm_label = "off (rules only)"
         clog("LLM: disabled")
