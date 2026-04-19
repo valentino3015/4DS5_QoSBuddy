@@ -1,3 +1,6 @@
+import json
+import re
+
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
@@ -31,7 +34,7 @@ def load_model():
     return tokenizer, model
 
 
-def predict(tokenizer, model, prompt: str, max_new_tokens: int = 800) -> str:
+def predict(tokenizer, model, prompt: str, max_new_tokens: int = 800) -> dict:
     inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
     with torch.no_grad():
         out = model.generate(
@@ -42,9 +45,17 @@ def predict(tokenizer, model, prompt: str, max_new_tokens: int = 800) -> str:
             pad_token_id=tokenizer.eos_token_id
         )
     generated = out[0][inputs["input_ids"].shape[1]:]
-    result = tokenizer.decode(generated, skip_special_tokens=True).strip()
+    raw = tokenizer.decode(generated, skip_special_tokens=True).strip()
     torch.cuda.empty_cache()
-    return result
+
+    # Extract JSON from the response
+    try:
+        # Strip any accidental markdown backticks the model might add
+        clean = re.sub(r"```json|```", "", raw).strip()
+        return json.loads(clean)
+    except json.JSONDecodeError:
+        # Fallback: return raw text if model didn't comply
+        return {"raw_response": raw}
 
 
 # ── PROMPT BUILDER ───────────────────────────────────────────────
@@ -122,12 +133,35 @@ def build_inference_prompt(event):
             {ranked_str}
 
             Instructions:
-            - INCIDENT INFO must include: Cell, Region, Vendor, Band, Slice, Severity, Score, Confidence, ETA, Mode
-            - Mode must be exactly "{mode}" — do not change it
-            - ETA must be exactly "{eta}h" — do not change it
-            - For REMEDIATION STEPS use numbered steps (Give between 3-6)
-            - For ALTERNATIVE CAUSES list each with its confidence percentage, Give a maximum of 3.
-            - Do not use JSON or markdown tables [/INST]"""
+            - Respond ONLY with a valid JSON object, no markdown, no backticks, no extra text
+            - JSON structure must be exactly:
+            {{
+                "summary": "string",
+                "incident_info": {{
+                    "cell": "string",
+                    "site": "string",
+                    "region": "string",
+                    "vendor": "string",
+                    "band": "string",
+                    "slice": "string",
+                    "severity": "string",
+                    "score": number,
+                    "confidence_pct": number,
+                    "eta": "string",
+                    "mode": "string"
+                }},
+                "rca_tags": ["string"],
+                "kpi_snapshot": {{}},
+                "remediation_steps": ["string"],
+                "alternative_causes": [
+                    {{"cause": "string", "confidence_pct": number}}
+                ]
+            }}
+            - mode must be exactly "{mode}"
+            - eta must be exactly "{eta}h"
+            - summary must be at least 3 sentences covering: what the issue is, where it is, what the impact is and what the recommended fix is
+            - remediation_steps must have between 3 and 6 detailed actionable steps, not just short labels
+            - alternative_causes must have EXACTLY 3 items, always, no more no less, pick the top 3 ranked causes after the primary one [/INST]"""
 
 
 # ── ENTRY POINT ──────────────────────────────────────────────────
