@@ -60,39 +60,9 @@ def predict(tokenizer, model, prompt: str, max_new_tokens: int = 800) -> dict:
 
 # ── PROMPT BUILDER ───────────────────────────────────────────────
 
-def derive_mode_and_eta(event):
-    rca = event['rca']
-    severity = event['anomaly_severity'].lower()
-    confidence = rca['confidence_pct']
-    primary_cause = rca['primary_cause'].lower()
-    tags = [t.lower() for t in rca['rca_tags']]
-
-    manual_causes = [
-        'x2/xn failure', 'node failure', 'hardware', 'antenna',
-        'duplex mismatch', 'pci collision', 'frequency planning',
-        'transport', 'fiber', 'backhaul'
-    ]
-    needs_manual = (
-        any(m in primary_cause for m in manual_causes) or
-        'transport' in tags or
-        severity == 'high' or
-        confidence < 15.0
-    )
-
-    mode = 'Manual' if needs_manual else 'Auto'
-    if mode == 'Manual':
-        eta = {'high': 4, 'medium': 8, 'low': 24}.get(severity, 8)
-    else:
-        eta = {'high': 1, 'medium': 2, 'low': 4}.get(severity, 2)
-
-    return mode, eta
-
-
 def build_inference_prompt(event):
     rca = event['rca']
     kpi = event['kpi_snapshot']
-
-    mode, eta = derive_mode_and_eta(event)
 
     ranked_str = ' | '.join(
         f"{c['cause']} ({c['probability']*100:.1f}%)"
@@ -123,8 +93,6 @@ def build_inference_prompt(event):
             - RCA Tags: {', '.join(rca['rca_tags'])}
             - Recommended Fix: {rca['recommended_solution']}
             - Similar Incidents: {similar_str}
-            - Mode: {mode}
-            - ETA: {eta}h
 
             KPIs:
             {kpi_str}
@@ -157,8 +125,9 @@ def build_inference_prompt(event):
                     {{"cause": "string", "confidence_pct": number}}
                 ]
             }}
-            - mode must be exactly "{mode}"
-            - eta must be exactly "{eta}h"
+            - mode should be "Auto" if the remediation steps are software-based configurations or optimizations that can be deployed remotely without human intervention.
+            - mode should be "Manual" if it requires a physical field site visit, hardware replacement, or complex engineering analysis.
+            - eta should be a reasonable time estimate in hours (e.g., "2h", "8h", "24h") based on the mode and complexity.
             - summary must be at least 3 sentences covering: what the issue is, where it is, what the impact is and what the recommended fix is
             - remediation_steps must have between 3 and 6 detailed actionable steps, not just short labels
             - alternative_causes must have EXACTLY 3 items, always, no more no less, pick the top 3 ranked causes after the primary one [/INST]"""
