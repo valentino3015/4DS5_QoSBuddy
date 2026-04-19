@@ -114,8 +114,10 @@ class RemediationEngine:
         region              = rca_event.get("region", "unknown")
         rca_id              = rca_event.get("rca_event_id", "unknown")
         neighbour_escalated = rca_event.get("neighbour_escalated", False) or rca.get("neighbour_escalated", False)
+        vendor              = rca_event.get("vendor", "unknown")
+        band                = rca_event.get("nr_band", "unknown")
 
-        cache_key = f"{cause}::{severity}"
+        cache_key = f"{cause}::{severity}::{vendor}::{band}"
         llm_data = None
         
         if cache_key in self.cache:

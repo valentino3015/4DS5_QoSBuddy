@@ -1,5 +1,11 @@
 import json
 import re
+import os
+from pathlib import Path
+
+# Redirect HuggingFace to keep model weights locked inside the QoSBuddy repository instead of C: drive
+LOCAL_CACHE_DIR = Path(__file__).resolve().parent.parent / "models" / "huggingface_cache"
+os.environ["HF_HOME"] = str(LOCAL_CACHE_DIR)
 
 import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
@@ -125,8 +131,8 @@ def build_inference_prompt(event):
                     {{"cause": "string", "confidence_pct": number}}
                 ]
             }}
-            - mode should be "Auto" if the remediation steps are software-based configurations or optimizations that can be deployed remotely without human intervention.
-            - mode should be "Manual" if it requires a physical field site visit, hardware replacement, or complex engineering analysis.
+            - mode should be "Auto" if the issue can be resolved remotely via OMC parameter tuning, remote node resets, or standard software optimization.
+            - mode should be "Manual" if the issue requires hardware replacement, physical transport/fiber repairs, or site dispatch.
             - eta should be a reasonable time estimate in hours (e.g., "2h", "8h", "24h") based on the mode and complexity.
             - summary must be at least 3 sentences covering: what the issue is, where it is, what the impact is and what the recommended fix is
             - remediation_steps must have between 3 and 6 detailed actionable steps, not just short labels
