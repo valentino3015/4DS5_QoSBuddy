@@ -565,7 +565,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 </div><!-- /app -->
 
 <script>
-const WS_PORT = 8765;
+const WS_PORT = 9000;
 const WS_URL  = 'ws://localhost:' + WS_PORT;
 const MAX_PTS = 40, MAX_CARDS = 100;
 
@@ -820,7 +820,7 @@ function addEvent(evt) {
 }
 
 function showDetail(evt) {
-  const rem=evt.remediation||{}, rca=evt.rca||{}, act=rem.primary_action||{};
+  const rem=evt.remediation||{}, rca=evt.rca||{}, act=rem.primary_action||{}, llm=evt.llm_remediation||{};
   const snap=evt.kpi_snapshot||{}, sev=evt.anomaly_severity||'low';
   const isCluster=evt.neighbour_escalated||rem.is_cluster_event;
   const KPI_DEFS=[
@@ -862,6 +862,9 @@ function showDetail(evt) {
   const tags=((rca.rca_tags||[]).map(t=>
     '<span class="tag'+(t.includes('cluster')?' cluster-tag':'')+'">'+t+'</span>'
   )).join('');
+  const llmStepsHtml=(llm.steps||[]).map((s,i)=>
+    '<div class="step"><div class="step-num">'+(i+1)+'</div><div class="step-text">'+s+'</div></div>'
+  ).join('');
   const metaHtml=[
     ['Cell',evt.cell_id||'&mdash;'],['Region',evt.region||'&mdash;'],
     ['Vendor',evt.vendor||'&mdash;'],['Band',evt.nr_band||'&mdash;'],
@@ -883,6 +886,14 @@ function showDetail(evt) {
     (tags?'<div class="dsec"><div class="dsec-title">RCA Tags</div><div class="tags">'+tags+'</div></div>':'')+
     (kpiHtml?'<div class="dsec"><div class="dsec-title">KPI Snapshot</div><div class="kpi-grid">'+kpiHtml+'</div></div>':'')+
     (stepsHtml?'<div class="dsec"><div class="dsec-title">Remediation Steps</div><div class="steps">'+stepsHtml+'</div></div>':'')+
+    (llm.explanation?'<div class="dsec"><div class="dsec-title">QoSBuddy-LLM</div><div class="summary-box">'+(llm.explanation||'')+'</div></div>':'')+
+    (llm.recommended_action||llm.priority?'<div class="dsec"><div class="dsec-title">LLM Decision</div><div class="meta-grid">'+
+      '<div class="meta-item"><div class="meta-k">Model</div><div class="meta-v">'+(llm.model||'QoSBuddy-LLM')+'</div></div>'+
+      '<div class="meta-item"><div class="meta-k">Source</div><div class="meta-v">'+(llm.source||'&mdash;')+'</div></div>'+
+      '<div class="meta-item"><div class="meta-k">Priority</div><div class="meta-v">'+(llm.priority||'&mdash;')+'</div></div>'+
+      '<div class="meta-item"><div class="meta-k">Action</div><div class="meta-v">'+(llm.recommended_action||'&mdash;')+'</div></div>'+
+      '</div></div>':'')+
+    (llmStepsHtml?'<div class="dsec"><div class="dsec-title">LLM Steps</div><div class="steps">'+llmStepsHtml+'</div></div>':'')+
     (altsHtml?'<div class="dsec"><div class="dsec-title">Alternative Causes</div>'+altsHtml+'</div>':'')+
     (simHtml?'<div class="dsec"><div class="dsec-title">Similar Past Incidents</div>'+simHtml+'</div>':'');
 }
