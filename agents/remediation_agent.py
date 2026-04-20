@@ -18,6 +18,8 @@ from pathlib import Path
 from datetime import datetime
 from collections import deque
 from copy import deepcopy
+import requests
+import re
 
 warnings.filterwarnings("ignore")
 
@@ -53,237 +55,161 @@ _sh.setFormatter(_fmt); _fh.setFormatter(_fmt)
 logging.basicConfig(level=logging.INFO, handlers=[_sh, _fh])
 log = logging.getLogger("RemediationAgent")
 
-# Knowledge Base
-REMEDIATION_KB = {
-    "Poor RSRP coverage": {
-        "action": "Adjust antenna tilt and increase cell power",
-        "steps": [
-            "Identify sectors with RSRP below -110 dBm using OMC counters",
-            "Reduce mechanical downtilt by 2-3 degrees to extend coverage radius",
-            "Increase DL transmission power by 3 dB (verify EIRP regulatory limits first)",
-            "Add missing neighbor relations to adjacent cells via ANR",
-            "Schedule a drive test to validate the coverage improvement",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 4, "auto": False,
-        "impact": "Resolves coverage hole and reduces call drop rate significantly",
-    },
-    "High interference (SINR<0)": {
-        "action": "Run interference audit and optimize power control",
-        "steps": [
-            "Pull the inter-cell interference matrix from the OMC dashboard",
-            "Identify top-3 interfering cells by PCI and SINR heatmap",
-            "Reduce aggressor cell Tx power by 2 dB to lower interference floor",
-            "Adjust ICIC parameters to coordinate resource usage across cells",
-            "Enable UL closed-loop power control with tighter alpha value",
-        ],
-        "priority": "Critical", "effort": "Medium", "eta_hours": 2, "auto": True,
-        "impact": "Improves SINR by 3-6 dB and boosts user throughput by 20-40%",
-    },
-    "HO failure": {
-        "action": "Tune handover parameters and clean the neighbor list",
-        "steps": [
-            "Export neighbor relation table and flag missing or stale entries",
-            "Reduce the A3 offset from its current value by 2 dB",
-            "Shorten Time-to-Trigger (TTT) from 320 ms to 160 ms",
-            "Verify X2/Xn interface links are up with all nearby gNBs",
-            "Monitor HO success rate for 1 hour after applying changes",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Restores HO success rate above 95% and eliminates cell-edge call drops",
-    },
-    "PRB saturation": {
-        "action": "Activate carrier aggregation and load balancing",
-        "steps": [
-            "Enable Carrier Aggregation to add a secondary carrier on the overloaded cell",
-            "Enable MLB to offload UEs to adjacent lightly-loaded cells",
-            "Lower PRB utilization alarm threshold so MLB triggers earlier",
-            "Check scheduler config for fair resource sharing across slices",
-            "Flag for Massive MIMO upgrade if PRB stays above 90% for 2+ hours",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Reduces PRB load by 25-35% and restores average user throughput",
-    },
-    "Transport congestion": {
-        "action": "Reroute traffic and upgrade backhaul QoS settings",
-        "steps": [
-            "Check transport link utilization on the affected gNB backhaul port",
-            "Reroute to alternate path via BGP/OSPF metric adjustment",
-            "Apply DSCP remarking to prioritize 5G user-plane (GTP-U) traffic",
-            "Tune AQM settings (CoDel or FQ-CoDel) to reduce buffer bloat",
-            "Escalate to transport team for capacity upgrade if link stays above 80%",
-        ],
-        "priority": "Critical", "effort": "High", "eta_hours": 6, "auto": False,
-        "impact": "Reduces latency from over 100 ms to under 30 ms, stops RLC retransmissions",
-    },
-    "Missing neighbor relation": {
-        "action": "Run ANR audit and add missing neighbor cells",
-        "steps": [
-            "Trigger ANR scan on the affected cell",
-            "Cross-check with cell topology map for geographically adjacent gNBs",
-            "Manually add missing NCRs in the OMC interface",
-            "Verify X2/Xn signaling is established with each new neighbor",
-            "Run a test handover call to confirm the relationship works",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Eliminates ping-pong HO failures and reduces call drops by 30-50%",
-    },
-    "Coverage hole": {
-        "action": "Deploy a small cell or repeater in the coverage gap",
-        "steps": [
-            "Confirm the coverage hole via drive test or UE measurement reports",
-            "Identify suitable indoor or outdoor small cell deployment sites",
-            "Temporarily adjust adjacent macrocell tilt to partially fill the gap",
-            "Submit site acquisition request for permanent small cell installation",
-            "Integrate small cell with core network and neighbor list",
-        ],
-        "priority": "High", "effort": "High", "eta_hours": 72, "auto": False,
-        "impact": "Permanently resolves coverage gap, improves indoor RSRP by 15-20 dB",
-    },
-    "PCI collision": {
-        "action": "Reassign PCI to eliminate the collision or confusion",
-        "steps": [
-            "Extract the current PCI allocation plan from the OMC",
-            "Identify conflicting PCIs within 3-cell reuse distance (mod-3 collision)",
-            "Assign a new PCI from available pool respecting mod-3 and mod-30 rules",
-            "Push PCI change via OMC (no service interruption required)",
-            "Verify UE RRC measurement reports no longer show PCI confusion",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Eliminates HO confusion and improves cell selection accuracy",
-    },
-    "UL/DL interference": {
-        "action": "Optimize UL power control and activate interference cancellation",
-        "steps": [
-            "Set UL SINR target to 5 dB and enable closed-loop power control",
-            "Enable IRC (Interference Rejection Combining) on affected cells",
-            "Check for rogue UEs transmitting at max power causing UL interference",
-            "Coordinate with neighboring operators on shared frequency bands",
-            "Apply frequency reuse pattern adjustments if TDD interference is the cause",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 3, "auto": True,
-        "impact": "Improves UL BLER from above 15% to below 5%, boosts MOS by 0.5-1.0",
-    },
-    "PRB congestion": {
-        "action": "Load balance users and activate carrier aggregation",
-        "steps": [
-            "Identify top PRB-consuming UEs via scheduler statistics",
-            "Apply QoS throttling to best-effort traffic on the mMTC slice",
-            "Activate 5G CA combining n78 and n28 bands for extra capacity",
-            "Enable 256-QAM modulation to improve spectral efficiency per PRB",
-            "Schedule capacity planning review if peak load exceeds 85% daily",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Frees 20-30% PRB and restores average user throughput to normal",
-    },
-    "Low SINR": {
-        "action": "Optimize antenna tilt and update beamforming weights",
-        "steps": [
-            "Reduce electrical downtilt by 1-2 degrees on the affected sector",
-            "Update beamforming codebook weights for target UE cluster locations",
-            "Enable 3D beamforming if Massive MIMO hardware is available",
-            "Verify antenna cable integrity by checking for high VSWR readings",
-            "Confirm no neighboring cell is overshooting into this sector",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 3, "auto": False,
-        "impact": "Improves average SINR by 3-5 dB with throughput gains of 15-25%",
-    },
-    "Overshooting cell": {
-        "action": "Increase downtilt to contain the cell footprint",
-        "steps": [
-            "Increase mechanical downtilt by 3-5 degrees on the overshooting sector",
-            "Reduce DL Tx power by 3 dB to shrink the coverage footprint",
-            "Update neighbor lists of cells newly exposed after coverage shrink",
-            "Verify HO boundaries are re-established correctly after the change",
-            "Run an automated coverage verification scan to confirm the fix",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 2, "auto": False,
-        "impact": "Eliminates interference to 2-4 adjacent cells and reduces call drop rate",
-    },
-    "PDU session drop": {
-        "action": "Check UPF path health and tune session timer parameters",
-        "steps": [
-            "Verify UPF instance health and check N3/N9 interface status",
-            "Extend PDU session inactivity timer from 30 seconds to 120 seconds",
-            "Inspect SMF logs for unexpected AMF-triggered session releases",
-            "Verify QoS Flow Binding is correctly configured for the affected slice",
-            "Restart UPF session management process if drop rate stays above 5%",
-        ],
-        "priority": "Critical", "effort": "Medium", "eta_hours": 2, "auto": False,
-        "impact": "Eliminates unexpected data session interruptions for affected users",
-    },
-}
-
+# Knowledge Base (Deprecated in favor of AI)
 DEFAULT_REMEDIATION = {
     "action": "Manual investigation required",
     "steps": [
+        "Check LLM service availability",
         "Collect full OMC performance counters for the affected cell",
         "Review the alarm history for the past 24 hours",
-        "Perform a drive test in the affected geographic area",
-        "Escalate to the Level-2 RF engineering team with collected data",
+        "Escalate to the Level-2 RF engineering team"
     ],
     "priority": "Medium", "effort": "High", "eta_hours": 8, "auto": False,
-    "impact": "Requires manual analysis to determine the correct resolution path",
+    "summary": "The LLM API is unavailable. Defaulting to manual investigation.",
+    "impact": "Requires manual analysis to determine the correct resolution path"
 }
 
-PRIORITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
-EFFORT_SCORE   = {"Low": 3, "Medium": 2, "High": 1}
+def get_llm_port():
+    app_py_path = ROOT / "LLM" / "App.py"
+    if app_py_path.exists():
+        content = app_py_path.read_text(encoding="utf-8")
+        match = re.search(r'port\s*=\s*(\d+)', content)
+        if match:
+            return int(match.group(1))
+    return 8081
+
+LLM_PORT = get_llm_port()
 
 
 class RemediationEngine:
-    def _score(self, action, confidence):
-        p = PRIORITY_SCORE.get(action.get("priority", "Low"), 1)
-        e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
-        return round(p * e * (confidence / 100.0), 3)
+    def __init__(self):
+        self.cache_file = OUTPUT_DIR / "llm_cache.jsonl"
+        self.cache = {}
+        if self.cache_file.exists():
+            try:
+                for line in self.cache_file.read_text(encoding='utf-8').splitlines():
+                    line = line.strip()
+                    if not line: continue
+                    entry = json.loads(line)
+                    self.cache[entry["cache_key"]] = entry["data"]
+            except Exception as e:
+                log.warning(f"Could not load LLM cache: {e}")
 
-    def _summary(self, cause, action, cell_id, severity, neighbour_escalated=False):
-        mode    = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
-        eta     = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
-        cluster = " This is a CLUSTER EVENT — multiple adjacent cells are affected simultaneously."                   if neighbour_escalated else ""
-        return (
-            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}.{cluster} "
-            f"The recommended fix is to {action['action'].lower()}, which {mode}. "
-            f"Expected resolution time is {eta}. "
-            f"Once applied, this should {action['impact'].lower()}."
-        )
+    def _append_to_cache(self, cache_key, data):
+        try:
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            entry = {"cache_key": cache_key, "data": data}
+            with open(self.cache_file, "a", encoding='utf-8') as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            log.warning(f"Could not append to LLM cache: {e}")
 
     def recommend(self, rca_event):
         rca                 = rca_event.get("rca", {})
-        cause               = rca.get("primary_cause", "")
+        cause               = rca.get("primary_cause", "Unknown")
         confidence          = float(rca.get("confidence_pct", 50.0))
-        severity            = rca_event.get("anomaly_severity", "medium")
+        severity            = rca_event.get("anomaly_severity", "LOW").upper()
         cell_id             = rca_event.get("cell_id", "unknown")
-        ranked              = rca.get("ranked_causes", [])
-        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
+        site_id             = rca_event.get("site_id", "unknown")
+        region              = rca_event.get("region", "unknown")
+        rca_id              = rca_event.get("rca_event_id", "unknown")
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or rca.get("neighbour_escalated", False)
+        vendor              = rca_event.get("vendor", "unknown")
+        band                = rca_event.get("nr_band", "unknown")
 
-        action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
-        action["score"]   = self._score(action, confidence)
-        action["summary"] = self._summary(cause, action, cell_id, severity,
-                                          neighbour_escalated)
+        cache_key = f"{cause}::{severity}::{vendor}::{band}"
+        llm_data = None
+        
+        if cache_key in self.cache:
+            log.info(f"LLM Cache Hit for [{cache_key}] - Skipping Mistral AI API.")
+            cached = deepcopy(self.cache[cache_key])
+            llm_data = cached["llm_data"]
+            # Swap dynamic fields
+            sum_text = llm_data.get("summary", "")
+            sum_text = sum_text.replace(cached["orig_cell"], cell_id)
+            sum_text = sum_text.replace(cached["orig_rca_id"], rca_id)
+            sum_text = sum_text.replace(cached["orig_site"], site_id)
+            sum_text = sum_text.replace(cached["orig_region"], region)
+            llm_data["summary"] = sum_text
+            
+            if "incident_info" in llm_data:
+                llm_data["incident_info"]["cell"] = cell_id
+                llm_data["incident_info"]["site"] = site_id
+                llm_data["incident_info"]["region"] = region
+                llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
+        else:
+            try:
+                url = f"http://127.0.0.1:{LLM_PORT}/predict"
+                # Disable LLM timeout so it doesn't drop long generations, max 600s
+                safe_event = clean_nan(rca_event)
+                response = requests.post(url, json=safe_event, timeout=600.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "response" in data:
+                        llm_data = data["response"]
+                        cache_entry = {
+                            "orig_cell": cell_id,
+                            "orig_site": site_id,
+                            "orig_region": region,
+                            "orig_rca_id": rca_id,
+                            "llm_data": llm_data
+                        }
+                        self.cache[cache_key] = cache_entry
+                        self._append_to_cache(cache_key, cache_entry)
+                    elif "raw_response" in data:
+                        log.warning("LLM API returned raw_response instead of structured JSON.")
+            except requests.exceptions.RequestException as e:
+                log.warning(f"LLM API unreachable or timed out ({e}). Using fallback.")
+        if llm_data:
+            info = llm_data.get("incident_info", {})
+            steps = llm_data.get("remediation_steps", [])
+            
+            raw_eta = str(info.get("eta", "8"))
+            parsed_eta = re.sub(r'[^0-9]', '', raw_eta)
+            eta_val = int(parsed_eta) if parsed_eta else 8
+            
+            action = {
+                "summary": llm_data.get("summary", "No summary available."),
+                "steps": steps,
+                "action": steps[0] if (steps and isinstance(steps, list)) else "Auto-generated investigation",
+                "auto": str(info.get("mode", "Manual")).lower() == "auto",
+                "eta_hours": eta_val,
+                "priority": info.get("severity", "Medium"),
+                "impact": "Implements exact instructions listed in remediation steps."
+            }
+            alts = []
+            for alt in llm_data.get("alternative_causes", []):
+                raw_conf = str(alt.get("confidence_pct", 0.0)).replace("%", "").strip()
+                try:
+                    conf_val = float(raw_conf) / 100.0
+                except ValueError:
+                    conf_val = 0.0
 
+                alts.append({
+                    "cause": alt.get("cause", "Unknown alternative"),
+                    "probability": conf_val,
+                    "action": "Alternative proposed fix",
+                    "priority": "Low",
+                    "eta_hours": 8
+                })
+        else:
+            action = deepcopy(DEFAULT_REMEDIATION)
+            alts = []
+            
         # For cluster events, prepend a mandatory NOC notification step
         if neighbour_escalated:
             action["steps"] = [
-                "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
+                "CLUSTER ALERT: Notify NOC immediately \u2014 multiple adjacent cells affected",
                 "Open a P1 incident ticket and assign to senior RF engineer",
-            ] + action["steps"]
+            ] + action.get("steps", [])
             action["priority"] = "Critical"
-            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
-
-        alternatives = []
-        for alt in ranked[1:4]:
-            alt_cause  = alt.get("cause", "")
-            alt_prob   = float(alt.get("probability", 0)) * 100
-            alt_action = deepcopy(REMEDIATION_KB.get(alt_cause, DEFAULT_REMEDIATION))
-            alt_action["cause"]       = alt_cause
-            alt_action["probability"] = alt.get("probability", 0)
-            alt_action["score"]       = self._score(alt_action, alt_prob)
-            alternatives.append(alt_action)
-
+            action["eta_hours"] = max(1, action.get("eta_hours", 2) - 1)
+            
         return {
             "cause":               cause,
             "confidence_pct":      confidence,
             "primary_action":      action,
-            "alternatives":        alternatives,
+            "alternatives":        alts,
             "similar_resolved":    rca.get("similar_incidents", []),
             "neighbour_escalated": neighbour_escalated,
             "is_cluster_event":    neighbour_escalated,
@@ -509,11 +435,11 @@ class FeedReader:
         broadcast_event(out)
 
         sev   = out["anomaly_severity"].upper()
-        cause = remediation["cause"]
-        act   = remediation["primary_action"]
-        mode  = "[AUTO]" if act["auto"] else "[MANUAL]"
+        cause = remediation.get("cause", "")
+        act   = remediation.get("primary_action", {})
+        mode  = "[AUTO]" if act.get("auto") else "[MANUAL]"
         tag   = "[!!]" if sev in ("HIGH", "CRITICAL") else "[ ~ ]"
-        log.info(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act['action']} {mode}")
+        log.info(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act.get('action', '')} {mode}")
 
     def run(self, tail_interval):
         REMEDIATION_FEED.write_text("", encoding="utf-8")
