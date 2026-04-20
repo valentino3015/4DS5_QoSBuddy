@@ -14,14 +14,6 @@ Usage:
 
 import os, sys, json, time, logging, argparse, threading, asyncio
 import webbrowser, http.server, socketserver, warnings, math
-
-import requests
-import json
-import re
-import time
-
-
-
 from pathlib import Path
 from datetime import datetime
 from collections import deque
@@ -49,9 +41,6 @@ for d in [OUTPUT_DIR, LOG_DIR, DASHBOARD_DIR]:
 RCA_FEED         = OUTPUT_DIR / "rca_feed.jsonl"
 REMEDIATION_FEED = OUTPUT_DIR / "remediation_feed.jsonl"
 TOPOLOGY_PATH    = DATA_DIR / "cell_topology.csv"
-
-LAST_LLM_CALL = 0
-LLM_INTERVAL = 30
 
 # Logging
 if hasattr(sys.stdout, "reconfigure"):
@@ -239,58 +228,8 @@ DEFAULT_REMEDIATION = {
 PRIORITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
 EFFORT_SCORE   = {"Low": 3, "Medium": 2, "High": 1}
 
-# def ask_mistral(prompt: str):
-#     response = requests.post(
-#         "http://localhost:11434/api/generate",
-#         json={
-#          "model": "mistral",
-#          "prompt": "Explain 5G interference briefly",
-#          "stream": False,
-#          "options": {
-#          "num_predict": 50,      
-#          "temperature": 0.3      
-#          }
-#         }
-#     )
-#     data = response.json()
-
-#     return {
-#         "text": data.get("response", ""),
-#         "source": "mistral"
-#     }
-def ask_mistral(prompt: str):
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={
-            "model": "mistral",
-            "prompt": prompt,
-            "stream": False,
-            "options": {
-                "num_predict": 50,
-                "temperature": 0.3
-            }
-        }
-    )
-
-    data = response.json()
-
-    return data.get("response", "")
-    
-def extract_json(text):
-    match = re.search(r"\{.*\}", text, re.DOTALL)
-    if not match:
-        return None
-    try:
-        return json.loads(match.group())
-    except:
-        return None
 
 class RemediationEngine:
-    def __init__(self):
-        self.last_llm_time = 0
-        self.cached_result = None
-        self.cache_ttl = 30
-        
     def _score(self, action, confidence):
         p = PRIORITY_SCORE.get(action.get("priority", "Low"), 1)
         e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
@@ -308,106 +247,48 @@ class RemediationEngine:
         )
 
     def recommend(self, rca_event):
-        rca        = rca_event.get("rca", {})
-        cause      = rca.get("primary_cause", "")
-        confidence = float(rca.get("confidence_pct", 50.0))
-        severity   = rca_event.get("anomaly_severity", "medium")
-        cell_id    = rca_event.get("cell_id", "unknown")
-
+        rca                 = rca_event.get("rca", {})
+        cause               = rca.get("primary_cause", "")
+        confidence          = float(rca.get("confidence_pct", 50.0))
+        severity            = rca_event.get("anomaly_severity", "medium")
+        cell_id             = rca_event.get("cell_id", "unknown")
         ranked              = rca.get("ranked_causes", [])
-        neighbour_escalated = rca_event.get("neighbour_escalated", False) or rca.get("neighbour_escalated", False)
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
 
-        # ---------------------------
-        # 1. HYBRID LOGIC (KB FIRST)
-        # ---------------------------
-        if cause in REMEDIATION_KB:
-            action = deepcopy(REMEDIATION_KB[cause])
-            action["generated_by"] = "kb"
-        else:
-            prompt = f"""
-You are a telecom RF expert.
+        action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
+        action["score"]   = self._score(action, confidence)
+        action["summary"] = self._summary(cause, action, cell_id, severity,
+                                          neighbour_escalated)
 
-Cause: {cause}
-Severity: {severity}
-Confidence: {confidence}%
-KPIs: {rca_event.get("kpi_snapshot", {})}
-
-Return ONLY valid JSON with:
-- action (string)
-- steps (list of strings)
-- priority (Low/Medium/High/Critical)
-- effort (Low/Medium/High)
-- auto (true/false)
-- eta_hours (number)
-- impact (string)
-"""
-            now = time.time()
-
-            # use cache ONLY for LLM fallback
-            if self.cached_result and (now - self.last_llm_time < self.cache_ttl):
-                action = deepcopy(self.cached_result)
-                action["generated_by"] = "mistral_cached"
-            else:
-                response = ask_mistral(prompt)
-                parsed = extract_json(response)
-
-                if parsed:
-                    action = parsed
-                    action["generated_by"] = "mistral"
-                    self.cached_result = deepcopy(action)
-                    self.last_llm_time = now
-                else:
-                    action = deepcopy(DEFAULT_REMEDIATION)
-                    action["generated_by"] = "fallback"
-
-        # ---------------------------
-        # 3. SCORING (same as before)
-        # ---------------------------
-        action["score"] = self._score(action, confidence)
-        action["summary"] = self._summary(
-            cause,
-            action,
-            cell_id,
-            severity,
-            neighbour_escalated
-        )
-
-        # ---------------------------
-        # 4. CLUSTER HANDLING (same logic)
-        # ---------------------------
+        # For cluster events, prepend a mandatory NOC notification step
         if neighbour_escalated:
             action["steps"] = [
                 "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
                 "Open a P1 incident ticket and assign to senior RF engineer",
             ] + action["steps"]
-
             action["priority"] = "Critical"
-            action["eta_hours"] = max(1, action["eta_hours"] - 1)
+            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
 
-        # ---------------------------
-        # 5. ALTERNATIVES (unchanged)
-        # ---------------------------
         alternatives = []
         for alt in ranked[1:4]:
             alt_cause  = alt.get("cause", "")
             alt_prob   = float(alt.get("probability", 0)) * 100
             alt_action = deepcopy(REMEDIATION_KB.get(alt_cause, DEFAULT_REMEDIATION))
-
-            alt_action["cause"] = alt_cause
+            alt_action["cause"]       = alt_cause
             alt_action["probability"] = alt.get("probability", 0)
-            alt_action["score"] = self._score(alt_action, alt_prob)
-
+            alt_action["score"]       = self._score(alt_action, alt_prob)
             alternatives.append(alt_action)
 
         return {
-            "cause": cause,
-            "confidence_pct": confidence,
-            "primary_action": action,
-            "alternatives": alternatives,
-            "similar_resolved": rca.get("similar_incidents", []),
+            "cause":               cause,
+            "confidence_pct":      confidence,
+            "primary_action":      action,
+            "alternatives":        alternatives,
+            "similar_resolved":    rca.get("similar_incidents", []),
             "neighbour_escalated": neighbour_escalated,
-            "is_cluster_event": neighbour_escalated,
+            "is_cluster_event":    neighbour_escalated,
         }
+
 
 class DashboardState:
     def __init__(self):
@@ -673,7 +554,7 @@ class FeedReader:
 def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
-    p.add_argument("--http-port",     type=int,   default=5000) #changed this from 8080 to 5000
+    p.add_argument("--http-port",     type=int,   default=8080)
     p.add_argument("--tail-interval", type=float, default=1.0)
     p.add_argument("--no-browser",    action="store_true")
     return p.parse_args()
