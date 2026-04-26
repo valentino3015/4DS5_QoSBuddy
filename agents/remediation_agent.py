@@ -15,7 +15,7 @@ Usage:
 import os, sys, json, time, logging, argparse, threading, asyncio
 import webbrowser, http.server, socketserver, warnings, math, csv, re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from copy import deepcopy
 import requests
@@ -229,7 +229,7 @@ class RemediationEngine:
 class DashboardState:
     def __init__(self):
         self._lock       = threading.Lock()
-        self.events      = deque(maxlen=300)
+        self.events      = deque()  # no maxlen — keep all events for full history
         self.kpi_history = {}
         self.cell_status = {}
         self.stats       = dict(total_anomalies=0, critical=0, high=0,
@@ -304,7 +304,7 @@ class DashboardState:
                 "stats":       dict(self.stats),
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
-                "events":      list(self.events)[-100:],
+                "events":      list(self.events),  # all events — no cap
                 "topology":    self.topology,
             }
 
@@ -334,9 +334,14 @@ async def ws_handler(websocket):
 
 async def _broadcast(msg):
     with WS_LOCK:
-        clients = set(WS_CLIENTS)
-    if clients:
-        await asyncio.gather(*[c.send(msg) for c in clients], return_exceptions=True)
+        clients = list(WS_CLIENTS)
+    for client in clients:
+        try:
+            # Sequential send prevents the "AssertionError" drain clash on Windows
+            await client.send(msg)
+        except Exception:
+            # If a client is disconnected/stalled, don't crash the broadcast for others
+            continue
 
 
 def clean_nan(obj):
@@ -361,7 +366,8 @@ def broadcast_event(event):
 
 async def _ws_main(host, port):
     log.info(f"WebSocket server on ws://{host}:{port}")
-    async with ws_serve(ws_handler, host, port):
+    # Disable ping_interval to stop the "keepalive ping failed" noise on Windows
+    async with ws_serve(ws_handler, host, port, ping_interval=None):
         WS_READY.set()
         await asyncio.Future()
 
@@ -428,7 +434,7 @@ class FeedReader:
             "rem_event_id":     f"REM-{self.count:07d}",
             "agent":            "RemediationAgent",
             "phase":            phase,
-            "processed_at":     datetime.utcnow().isoformat() + "Z",
+            "processed_at":     datetime.now(timezone.utc).isoformat(),
             "source_rca_id":    rca_event.get("rca_event_id", ""),
             "timestamp":        rca_event.get("timestamp", ""),
             "cell_id":          rca_event.get("cell_id", ""),

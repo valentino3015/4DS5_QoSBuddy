@@ -29,7 +29,7 @@ Usage:
 
 import os, sys, json, time, logging, argparse, warnings, math
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import defaultdict, deque, OrderedDict
 from copy import deepcopy
 from tqdm import tqdm
@@ -434,9 +434,11 @@ class BatchTrainer:
         optim_ae = torch.optim.Adam(self.lstm_ae.parameters(), lr=1e-3)
         es_ae = EarlyStopping(patience=4)
         self.lstm_ae.train()
-        metrics_buffer = {}
+        train_metrics = {}
+        val_metrics = {}
 
         for epoch in range(1, 31):
+            self.lstm_ae.train()
             epoch_loss = 0.0
             pbar = tqdm(normal_loader, desc=f"  LSTM-AE Epoch {epoch:02d}", leave=False)
             for (batch_x,) in pbar:
@@ -448,17 +450,28 @@ class BatchTrainer:
                 optim_ae.step()
                 epoch_loss += loss.item() * len(batch_x)
                 pbar.set_postfix(loss=f"{loss.item():.5f}")
-            
             epoch_loss /= max(len(X_tr_normal), 1)
-            metrics_buffer[epoch] = epoch_loss
-            log.info(f"  LSTM-AE Epoch {epoch:02d} — loss={epoch_loss:.5f}")
-            if es_ae.step(epoch_loss):
+            train_metrics[epoch] = epoch_loss
+
+            # Validation loss
+            self.lstm_ae.eval()
+            v_loss = 0.0
+            with torch.no_grad():
+                for (bx,) in val_loader:
+                    bx = bx.to(self.device)
+                    v_loss += F.mse_loss(self.lstm_ae(bx), bx).item() * len(bx)
+            v_loss /= max(len(val_normal), 1)
+            val_metrics[epoch] = v_loss
+
+            log.info(f"  LSTM-AE Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_ae.step(v_loss):
                 log.info(f"  ⛔ LSTM-AE early stop at epoch {epoch}")
                 break
-        # Batch-log all metrics at once
-        for ep, lv in metrics_buffer.items():
-            mlflow.log_metric("loss", lv, step=ep)
-        mlflow.log_metric("final_loss", epoch_loss)
+        for ep in train_metrics:
+            mlflow.log_metric("train_loss", train_metrics[ep], step=ep)
+            mlflow.log_metric("val_loss", val_metrics[ep], step=ep)
+        mlflow.log_metric("final_train_loss", epoch_loss)
+        mlflow.log_metric("final_val_loss", v_loss)
         if es_ae.stopped:
             mlflow.log_metric("early_stop_epoch", epoch)
         mlflow.end_run()
@@ -476,6 +489,10 @@ class BatchTrainer:
             self.lstm_ae.mse_p5 = torch.quantile(mse_tensor, 0.05).to(self.device)
             self.lstm_ae.mse_p95 = torch.quantile(mse_tensor, 0.95).to(self.device)
 
+        # Checkpoint: save immediately so it's not lost if later models crash
+        torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
+        log.info("  ✓ LSTM-AE checkpointed")
+
         # 2. Train TCNN on all sequences (Supervised)
         log.info("Training Temporal CNN on ALL sequences ...")
         mlflow.start_run(run_name="Temporal-CNN", nested=True)
@@ -484,6 +501,10 @@ class BatchTrainer:
         tcnn_loader = DataLoader(
             TensorDataset(torch.FloatTensor(X_tr), torch.FloatTensor(y_tr)), 
             batch_size=batch_size, shuffle=True
+        )
+        tcnn_val_loader = DataLoader(
+            TensorDataset(torch.FloatTensor(X_val), torch.FloatTensor(y_val)),
+            batch_size=batch_size, shuffle=False
         )
 
         self.tcnn = TemporalCNN(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
@@ -494,10 +515,11 @@ class BatchTrainer:
         pos_w = torch.tensor(n_neg / n_pos).clamp(0.5, 10.0).to(self.device)
         bce = nn.BCELoss(reduction='none')
         es_tcnn = EarlyStopping(patience=4)
-        metrics_buffer = {}
+        train_metrics = {}
+        val_metrics = {}
 
-        self.tcnn.train()
         for epoch in range(1, 31):
+            self.tcnn.train()
             epoch_loss = 0.0
             pbar = tqdm(tcnn_loader, desc=f"  TCNN Epoch {epoch:02d}", leave=False)
             for batch_x, batch_y in pbar:
@@ -512,19 +534,38 @@ class BatchTrainer:
                 optim_cnn.step()
                 epoch_loss += loss.item() * len(batch_x)
                 pbar.set_postfix(loss=f"{loss.item():.5f}")
-                
             epoch_loss /= max(len(X_tr), 1)
-            metrics_buffer[epoch] = epoch_loss
-            log.info(f"  TCNN Epoch {epoch:02d} — loss={epoch_loss:.5f}")
-            if es_tcnn.step(epoch_loss):
+            train_metrics[epoch] = epoch_loss
+
+            # Validation loss
+            self.tcnn.eval()
+            v_loss = 0.0
+            with torch.no_grad():
+                for bx, by in tcnn_val_loader:
+                    bx, by = bx.to(self.device), by.to(self.device)
+                    sc = self.tcnn(bx)
+                    rl = bce(sc, by)
+                    wv = torch.where(by == 1, pos_w, torch.ones_like(by))
+                    v_loss += (rl * wv).mean().item() * len(bx)
+            v_loss /= max(len(X_val), 1)
+            val_metrics[epoch] = v_loss
+
+            log.info(f"  TCNN Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_tcnn.step(v_loss):
                 log.info(f"  ⛔ TCNN early stop at epoch {epoch}")
                 break
-        for ep, lv in metrics_buffer.items():
-            mlflow.log_metric("loss", lv, step=ep)
-        mlflow.log_metric("final_loss", epoch_loss)
+        for ep in train_metrics:
+            mlflow.log_metric("train_loss", train_metrics[ep], step=ep)
+            mlflow.log_metric("val_loss", val_metrics[ep], step=ep)
+        mlflow.log_metric("final_train_loss", epoch_loss)
+        mlflow.log_metric("final_val_loss", v_loss)
         if es_tcnn.stopped:
             mlflow.log_metric("early_stop_epoch", epoch)
         mlflow.end_run()
+
+        # Checkpoint TCNN
+        torch.save(self.tcnn.state_dict(), MODEL_DIR / "tcnn.pt")
+        log.info("  ✓ TCNN checkpointed")
 
         # 3. Train LSTM Predictor (Supervised future regression)
         log.info("Training LSTM Predictor on ALL sequences ...")
@@ -535,15 +576,20 @@ class BatchTrainer:
             TensorDataset(torch.FloatTensor(X_tr), torch.FloatTensor(yl_tr)),
             batch_size=batch_size, shuffle=True
         )
+        lstm_val_loader = DataLoader(
+            TensorDataset(torch.FloatTensor(X_val), torch.FloatTensor(yl_val)),
+            batch_size=batch_size, shuffle=False
+        )
 
         self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
         optim_pred = torch.optim.Adam(self.lstm_pred.parameters(), lr=1e-3)
         mse_loss = nn.MSELoss()
         es_lstm = EarlyStopping(patience=4)
-        metrics_buffer = {}
+        train_metrics = {}
+        val_metrics = {}
 
-        self.lstm_pred.train()
         for epoch in range(1, 31):
+            self.lstm_pred.train()
             epoch_loss = 0.0
             pbar = tqdm(lstm_loader, desc=f"  LSTM-Predictor Epoch {epoch:02d}", leave=False)
             for batch_x, batch_y in pbar:
@@ -556,24 +602,37 @@ class BatchTrainer:
                 optim_pred.step()
                 epoch_loss += loss.item() * len(batch_x)
                 pbar.set_postfix(loss=f"{loss.item():.5f}")
-            
             epoch_loss /= max(len(X_tr), 1)
-            metrics_buffer[epoch] = epoch_loss
-            log.info(f"  LSTM Predictor Epoch {epoch:02d} — loss={epoch_loss:.5f}")
-            if es_lstm.step(epoch_loss):
+            train_metrics[epoch] = epoch_loss
+
+            # Validation loss
+            self.lstm_pred.eval()
+            v_loss = 0.0
+            with torch.no_grad():
+                for bx, by in lstm_val_loader:
+                    bx, by = bx.to(self.device), by.to(self.device)
+                    v_loss += mse_loss(self.lstm_pred(bx).squeeze(-1), by).item() * len(bx)
+            v_loss /= max(len(X_val), 1)
+            val_metrics[epoch] = v_loss
+
+            log.info(f"  LSTM Predictor Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_lstm.step(v_loss):
                 log.info(f"  ⛔ LSTM-Predictor early stop at epoch {epoch}")
                 break
-        for ep, lv in metrics_buffer.items():
-            mlflow.log_metric("loss", lv, step=ep)
-        mlflow.log_metric("final_loss", epoch_loss)
+        for ep in train_metrics:
+            mlflow.log_metric("train_loss", train_metrics[ep], step=ep)
+            mlflow.log_metric("val_loss", val_metrics[ep], step=ep)
+        mlflow.log_metric("final_train_loss", epoch_loss)
+        mlflow.log_metric("final_val_loss", v_loss)
         if es_lstm.stopped:
             mlflow.log_metric("early_stop_epoch", epoch)
         mlflow.end_run()
 
-        # Save models
-        torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
-        torch.save(self.tcnn.state_dict(), MODEL_DIR / "tcnn.pt")
+        # Checkpoint LSTM-Predictor
         torch.save(self.lstm_pred.state_dict(), MODEL_DIR / "lstm_predictor.pt")
+        log.info("  ✓ LSTM-Predictor checkpointed")
+
+        # Save scaler + upload all artifacts to MLflow
         joblib.dump(self.scaler, SCALER_PATH)
         
         mlflow.log_artifact(str(MODEL_DIR / "lstm_ae.pt"), artifact_path="models")
@@ -968,6 +1027,8 @@ class StreamInferencer:
 
         # Stats
         self.stats = {"processed": 0, "anomalies": 0, "rca_diagnosed": 0, "critical_escalations": 0}
+        self._cause_counts: dict[str, int] = {}  # track top causes for summary
+        self._last_progress = 0  # for periodic progress logging
 
         self._load_models()
 
@@ -1127,6 +1188,7 @@ class StreamInferencer:
                 parse_dates=["timestamp"],
                 chunksize=self.chunk_size,
             )
+            t_start = time.time()
 
             for chunk in reader:
                 chunk = chunk.dropna(subset=KPI_FEATURES_ANOMALY)
@@ -1216,7 +1278,7 @@ class StreamInferencer:
                             "rca_event_id":      f"RCA-{self.stats['anomalies']:07d}",
                             "agent":             "DetectionAgent",
                             "phase":             "stream",
-                            "processed_at":      datetime.utcnow().isoformat() + "Z",
+                            "processed_at":      datetime.now(timezone.utc).isoformat(),
                             "source_event_id":   f"EVT-{self.stats['processed']:07d}",
                             "timestamp":         str(row["timestamp"]),
                             "cell_id":           str(row["cell_id"]),
@@ -1245,8 +1307,10 @@ class StreamInferencer:
                         json_buffer.append(json.dumps(event, default=str) + "\n")
                         self._emit_console(event)
                         self.stats["rca_diagnosed"] += 1
+                        # Track cause for summary
+                        pc = rca_diagnosis.get("primary_cause", "unknown")
+                        self._cause_counts[pc] = self._cause_counts.get(pc, 0) + 1
 
-                # Spool writes chunklessly at IO bandwidth limit
                 if json_buffer:
                     feed_file.writelines(json_buffer)
                     feed_file.flush()
@@ -1254,9 +1318,48 @@ class StreamInferencer:
                     if self.stream_delay > 0:
                         time.sleep(self.stream_delay)
 
-        log.info("-" * 60)
-        log.info(f"Stream complete. Stats: {self.stats}")
-        log.info(f"Feed written -> {RCA_FEED}  ({self.stats['rca_diagnosed']:,} events)")
+                # Periodic progress logging every 10K rows
+                if self.stats["processed"] - self._last_progress >= 10_000:
+                    self._last_progress = self.stats["processed"]
+                    elapsed = time.time() - t_start
+                    rate = self.stats["processed"] / max(elapsed, 0.1)
+                    anom_pct = (self.stats["anomalies"] / max(self.stats["processed"], 1)) * 100
+                    log.info(
+                        f"  ▶ Progress: {self.stats['processed']:>10,} rows | "
+                        f"{self.stats['anomalies']:,} anomalies ({anom_pct:.1f}%) | "
+                        f"{self.stats['critical_escalations']} escalations | "
+                        f"{rate:,.0f} rows/s"
+                    )
+
+        # ── Final Summary ──
+        elapsed = time.time() - t_start
+        total = self.stats["processed"]
+        anom = self.stats["anomalies"]
+        diag = self.stats["rca_diagnosed"]
+        crit = self.stats["critical_escalations"]
+        anom_pct = (anom / max(total, 1)) * 100
+        rate = total / max(elapsed, 0.1)
+
+        # Track top cause from events
+        top_causes = sorted(self._cause_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
+        log.info("")
+        log.info("═" * 60)
+        log.info("  STREAMING SUMMARY")
+        log.info("═" * 60)
+        log.info(f"  Rows processed:     {total:>12,}")
+        log.info(f"  Anomalies detected: {anom:>12,}  ({anom_pct:.1f}%)")
+        log.info(f"  RCA diagnosed:      {diag:>12,}")
+        log.info(f"  Critical escal.:    {crit:>12,}")
+        log.info(f"  Elapsed time:       {elapsed:>11.1f}s")
+        log.info(f"  Throughput:         {rate:>10,.0f} rows/s")
+        if top_causes:
+            log.info(f"  Top causes:")
+            for cause, cnt in top_causes:
+                pct = (cnt / max(diag, 1)) * 100
+                log.info(f"    {cause:<35s} {cnt:>6,} ({pct:.1f}%)")
+        log.info(f"  Feed written -> {RCA_FEED}")
+        log.info("═" * 60)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
