@@ -13,13 +13,12 @@ Usage:
 """
 
 import os, sys, json, time, logging, argparse, threading, asyncio
-import webbrowser, http.server, socketserver, warnings, math
+import webbrowser, http.server, socketserver, warnings, math, csv, re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from copy import deepcopy
 import requests
-import re
 
 warnings.filterwarnings("ignore")
 
@@ -138,28 +137,39 @@ class RemediationEngine:
                 llm_data["incident_info"]["region"] = region
                 llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
         else:
-            try:
-                url = f"http://127.0.0.1:{LLM_PORT}/predict"
-                # Disable LLM timeout so it doesn't drop long generations, max 600s
-                safe_event = clean_nan(rca_event)
-                response = requests.post(url, json=safe_event, timeout=600.0)
-                if response.status_code == 200:
-                    data = response.json()
-                    if "response" in data:
-                        llm_data = data["response"]
-                        cache_entry = {
-                            "orig_cell": cell_id,
-                            "orig_site": site_id,
-                            "orig_region": region,
-                            "orig_rca_id": rca_id,
-                            "llm_data": llm_data
-                        }
-                        self.cache[cache_key] = cache_entry
-                        self._append_to_cache(cache_key, cache_entry)
-                    elif "raw_response" in data:
-                        log.warning("LLM API returned raw_response instead of structured JSON.")
-            except requests.exceptions.RequestException as e:
-                log.warning(f"LLM API unreachable or timed out ({e}). Using fallback.")
+            url = f"http://127.0.0.1:{LLM_PORT}/predict"
+            safe_event = clean_nan(rca_event)
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    response = requests.post(url, json=safe_event, timeout=600.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "error" in data:
+                            log.warning(f"LLM returned error: {data['error']} (attempt {attempt}/{max_retries})")
+                        elif "response" in data:
+                            llm_data = data["response"]
+                            cache_entry = {
+                                "orig_cell": cell_id,
+                                "orig_site": site_id,
+                                "orig_region": region,
+                                "orig_rca_id": rca_id,
+                                "llm_data": llm_data
+                            }
+                            self.cache[cache_key] = cache_entry
+                            self._append_to_cache(cache_key, cache_entry)
+                            break  # success
+                        elif "raw_response" in data:
+                            log.warning("LLM API returned raw_response instead of structured JSON.")
+                    else:
+                        log.warning(f"LLM API returned HTTP {response.status_code} (attempt {attempt}/{max_retries})")
+                except requests.exceptions.RequestException as e:
+                    log.warning(f"LLM API unreachable ({e}) — attempt {attempt}/{max_retries}")
+                # Exponential backoff before retry
+                if attempt < max_retries:
+                    backoff = 3 ** attempt  # 3s, 9s
+                    log.info(f"  Retrying in {backoff}s ...")
+                    time.sleep(backoff)
         if llm_data:
             info = llm_data.get("incident_info", {})
             steps = llm_data.get("remediation_steps", [])
@@ -219,7 +229,7 @@ class RemediationEngine:
 class DashboardState:
     def __init__(self):
         self._lock       = threading.Lock()
-        self.events      = deque(maxlen=300)
+        self.events      = deque()  # no maxlen — keep all events for full history
         self.kpi_history = {}
         self.cell_status = {}
         self.stats       = dict(total_anomalies=0, critical=0, high=0,
@@ -233,7 +243,6 @@ class DashboardState:
             log.warning(f"Topology file not found at {TOPOLOGY_PATH}")
             return []
         try:
-            import csv
             rows = []
             with open(TOPOLOGY_PATH, newline='', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -295,7 +304,7 @@ class DashboardState:
                 "stats":       dict(self.stats),
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
-                "events":      list(self.events)[-100:],
+                "events":      list(self.events),  # all events — no cap
                 "topology":    self.topology,
             }
 
@@ -325,15 +334,22 @@ async def ws_handler(websocket):
 
 async def _broadcast(msg):
     with WS_LOCK:
-        clients = set(WS_CLIENTS)
-    if clients:
-        await asyncio.gather(*[c.send(msg) for c in clients], return_exceptions=True)
+        clients = list(WS_CLIENTS)
+    for client in clients:
+        try:
+            # Sequential send prevents the "AssertionError" drain clash on Windows
+            await client.send(msg)
+        except Exception:
+            # If a client is disconnected/stalled, don't crash the broadcast for others
+            continue
 
 
 def clean_nan(obj):
     """Recursively replace NaN floats with None so json.dumps never fails."""
-    if isinstance(obj, float) and math.isnan(obj):
-        return None
+    if isinstance(obj, float):
+        return None if math.isnan(obj) else obj
+    if isinstance(obj, (str, int, bool, type(None))):
+        return obj
     if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -350,7 +366,8 @@ def broadcast_event(event):
 
 async def _ws_main(host, port):
     log.info(f"WebSocket server on ws://{host}:{port}")
-    async with ws_serve(ws_handler, host, port):
+    # Disable ping_interval to stop the "keepalive ping failed" noise on Windows
+    async with ws_serve(ws_handler, host, port, ping_interval=None):
         WS_READY.set()
         await asyncio.Future()
 
@@ -373,7 +390,6 @@ def start_http_server(port):
 
 
 def prepare_dashboard(ws_port):
-    import re
     html_path = DASHBOARD_DIR / "index.html"
     if not html_path.exists():
         log.error(f"Dashboard index.html not found at {html_path}")
@@ -394,6 +410,13 @@ class FeedReader:
     def __init__(self):
         self.engine = RemediationEngine()
         self.count  = 0
+        self._feed_fh = None  # persistent file handle for remediation_feed
+
+    def _ensure_feed_handle(self):
+        if self._feed_fh is None:
+            REMEDIATION_FEED.parent.mkdir(parents=True, exist_ok=True)
+            self._feed_fh = open(REMEDIATION_FEED, "a", encoding="utf-8")
+        return self._feed_fh
 
     def _process(self, line, phase):
         line = line.strip()
@@ -411,7 +434,7 @@ class FeedReader:
             "rem_event_id":     f"REM-{self.count:07d}",
             "agent":            "RemediationAgent",
             "phase":            phase,
-            "processed_at":     datetime.utcnow().isoformat() + "Z",
+            "processed_at":     datetime.now(timezone.utc).isoformat(),
             "source_rca_id":    rca_event.get("rca_event_id", ""),
             "timestamp":        rca_event.get("timestamp", ""),
             "cell_id":          rca_event.get("cell_id", ""),
@@ -428,8 +451,9 @@ class FeedReader:
             "remediation":      remediation,
         }
 
-        with open(REMEDIATION_FEED, "a", encoding="utf-8") as f:
-            f.write(json.dumps(clean_nan(out), default=str) + "\n")
+        fh = self._ensure_feed_handle()
+        fh.write(json.dumps(clean_nan(out), default=str) + "\n")
+        fh.flush()
 
         STATE.push(out)
         broadcast_event(out)
@@ -462,19 +486,21 @@ class FeedReader:
         log.info("=" * 60)
         log.info("PHASE 2 - LIVE TAIL  (Ctrl+C to stop)")
         log.info("=" * 60)
-        while True:
-            try:
-                if RCA_FEED.exists():
-                    with open(RCA_FEED, "r", encoding="utf-8") as f:
-                        f.seek(pos)
-                        new_lines = f.readlines()
-                        pos = f.tell()
-                    for line in new_lines:
+
+        try:
+            with open(RCA_FEED, "r", encoding="utf-8") as tail_fh:
+                tail_fh.seek(pos)
+                while True:
+                    line = tail_fh.readline()
+                    if line:
                         self._process(line, "live")
-                time.sleep(tail_interval)
-            except KeyboardInterrupt:
-                log.info("Feed reader stopped.")
-                break
+                    else:
+                        time.sleep(tail_interval)
+        except KeyboardInterrupt:
+            log.info("Feed reader stopped.")
+        finally:
+            if self._feed_fh:
+                self._feed_fh.close()
 
 
 def parse_args():

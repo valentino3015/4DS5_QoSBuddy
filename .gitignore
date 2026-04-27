@@ -2,3 +2,23 @@
 /data/
 /models/
 /logs/
+
+# MLflow
+mlruns/
+mlflow_tracking.db
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.idea/
+.vscode/
+
+# Dashboard backups
+dashboard/index bk.html
+
+# OS
+Thumbs.db
+.DS_Store
