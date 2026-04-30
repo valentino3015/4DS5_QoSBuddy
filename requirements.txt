@@ -26,6 +26,8 @@ huggingface-hub==0.33.4
 mlflow==3.11.1
 shap==0.51.0
 skops==0.14.0
+statsmodels==0.14.6
+xgboost==3.2.0
 tqdm==4.67.1
 
 # ── Web / API ──
