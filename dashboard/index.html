@@ -581,6 +581,7 @@ header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
 const WS_PORT = 8765;
 const WS_URL  = 'ws://localhost:' + WS_PORT;
 const MAX_PTS = 40, MAX_CARDS = 100;
+let totalHistoryCount = 0;
 
 setInterval(() => {
   document.getElementById('clock').textContent =
@@ -631,7 +632,7 @@ function pushPoint(chart, label, value, el, unit) {
   const v = Number(value), d = chart.data;
   d.labels.push(label); d.datasets[0].data.push(v);
   if (d.labels.length > MAX_PTS) { d.labels.shift(); d.datasets[0].data.shift(); }
-  chart.update('none');
+  // We don't call chart.update here anymore; it's handled by debouncedUpdate
   if (el) el.textContent = v.toFixed(1) + (unit||'');
 }
 
@@ -640,6 +641,24 @@ function sevColor(s) { return SEV_COLOR[s]||'#4a6080'; }
 
 let allEvents=[], cellStatus={}, cellPos={};
 let stats={total_anomalies:0,critical:0,high:0,medium:0,low:0,auto_resolved:0,manual_pending:0};
+
+let uiUpdatePending = false;
+function debouncedUpdate() {
+  if (uiUpdatePending) return;
+  uiUpdatePending = true;
+  requestAnimationFrame(() => {
+    uiUpdatePending = false;
+    renderStats();
+    renderMap();
+    updateAnalytics();
+    
+    // Efficiently update live line charts once per frame
+    if (charts.rsrp) charts.rsrp.update('none');
+    if (charts.sinr) charts.sinr.update('none');
+    if (charts.prb) charts.prb.update('none');
+    if (charts.lat) charts.lat.update('none');
+  });
+}
 
 function renderStats() {
   document.getElementById('s-total').textContent    = stats.total_anomalies;
@@ -826,17 +845,21 @@ function addEvent(evt) {
   pushPoint(charts.sinr,ts,snap.SINR_dB,         LV.sinr,' dB');
   pushPoint(charts.prb, ts,snap.PRB_util_DL_pct, LV.prb,'%');
   pushPoint(charts.lat, ts,snap.latency_ms,       LV.lat,' ms');
+  totalHistoryCount++;
   if(feedPage===0 && passesFilters(evt)) {
     const wrap=document.getElementById('feed-wrap');
     wrap.prepend(buildCard(evt, true));
     while(wrap.children.length>PAGE_SIZE) wrap.lastChild.remove();
     const filtered=getFilteredEvents();
     const total=filtered.length, totalPages=Math.max(1,Math.ceil(total/PAGE_SIZE));
-    document.getElementById('feed-count').textContent=total+' / '+allEvents.length+' events';
+    document.getElementById('feed-count').textContent=total+' / '+totalHistoryCount+' events';
     renderPager(totalPages,total);
+  } else {
+    // Just update the total text if we are on another page
+    const total=getFilteredEvents().length;
+    document.getElementById('feed-count').textContent=total+' / '+totalHistoryCount+' events';
   }
-  renderStats(); renderMap();
-  updateAnalytics();
+  debouncedUpdate();
 }
 
 function showDetail(evt) {
@@ -942,6 +965,8 @@ function loadSnapshot(data) {
   });
   const evts=data.events||[];
   evts.forEach(e=>allEvents.push(e));
+  totalHistoryCount = data.full_history_count || allEvents.length;
+  totalHistoryCount = data.full_history_count || allEvents.length;
   rebuildFeed();
   if (evts.length>0) showDetail(evts[evts.length-1]);
   // Load topology data

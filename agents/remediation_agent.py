@@ -19,14 +19,12 @@ Full audit: logs/remediation_agent.log
 """
 
 import os, sys, json, time, logging, argparse, threading, asyncio
-import webbrowser, http.server, socketserver, warnings, math
-import urllib.request, urllib.error
-import torch
+import webbrowser, http.server, socketserver, warnings, math, csv, re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from collections import deque
 from copy import deepcopy
-from transformers import AutoModelForCausalLM, AutoTokenizer
+import requests
 
 warnings.filterwarnings("ignore")
 
@@ -59,506 +57,187 @@ if hasattr(sys.stdout, "reconfigure"):
 _DETAILED_FMT = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s - %(message)s")
 _CONSOLE_FMT  = logging.Formatter("%(message)s")
 log = logging.getLogger("RemediationAgent")
-log.handlers.clear()
-log.setLevel(logging.DEBUG)
-log.propagate = False
 
-_CONSOLE_VERBOSE = False
-
-
-def _configure_logging(verbose: bool) -> None:
-    """Console: warnings only by default; --verbose → INFO on terminal (full audit still in logs/)."""
-    global _CONSOLE_VERBOSE
-    _CONSOLE_VERBOSE = verbose
-    for h in list(log.handlers):
-        log.removeHandler(h)
-    sh = logging.StreamHandler(sys.stdout)
-    sh.setLevel(logging.INFO if verbose else logging.WARNING)
-    if verbose:
-        sh.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(message)s"))
-    else:
-        sh.setFormatter(_CONSOLE_FMT)
-    fh = logging.FileHandler(LOG_DIR / "remediation_agent.log", encoding="utf-8")
-    fh.setLevel(logging.DEBUG)
-    fh.setFormatter(_DETAILED_FMT)
-    log.addHandler(sh)
-    log.addHandler(fh)
-    for name in ("websockets", "websockets.server", "websockets.client", "websockets.protocol"):
-        logging.getLogger(name).setLevel(logging.WARNING)
-
-
-def clog(msg: str, *args) -> None:
-    """Mirror to console when --verbose; always persisted at DEBUG in file."""
-    if _CONSOLE_VERBOSE:
-        log.info(msg, *args)
-    else:
-        log.debug(msg, *args)
-
-# Knowledge Base
-REMEDIATION_KB = {
-    "Poor RSRP coverage": {
-        "action": "Adjust antenna tilt and increase cell power",
-        "steps": [
-            "Identify sectors with RSRP below -110 dBm using OMC counters",
-            "Reduce mechanical downtilt by 2-3 degrees to extend coverage radius",
-            "Increase DL transmission power by 3 dB (verify EIRP regulatory limits first)",
-            "Add missing neighbor relations to adjacent cells via ANR",
-            "Schedule a drive test to validate the coverage improvement",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 4, "auto": False,
-        "impact": "Resolves coverage hole and reduces call drop rate significantly",
-    },
-    "High interference (SINR<0)": {
-        "action": "Run interference audit and optimize power control",
-        "steps": [
-            "Pull the inter-cell interference matrix from the OMC dashboard",
-            "Identify top-3 interfering cells by PCI and SINR heatmap",
-            "Reduce aggressor cell Tx power by 2 dB to lower interference floor",
-            "Adjust ICIC parameters to coordinate resource usage across cells",
-            "Enable UL closed-loop power control with tighter alpha value",
-        ],
-        "priority": "Critical", "effort": "Medium", "eta_hours": 2, "auto": True,
-        "impact": "Improves SINR by 3-6 dB and boosts user throughput by 20-40%",
-    },
-    "HO failure": {
-        "action": "Tune handover parameters and clean the neighbor list",
-        "steps": [
-            "Export neighbor relation table and flag missing or stale entries",
-            "Reduce the A3 offset from its current value by 2 dB",
-            "Shorten Time-to-Trigger (TTT) from 320 ms to 160 ms",
-            "Verify X2/Xn interface links are up with all nearby gNBs",
-            "Monitor HO success rate for 1 hour after applying changes",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Restores HO success rate above 95% and eliminates cell-edge call drops",
-    },
-    "PRB saturation": {
-        "action": "Activate carrier aggregation and load balancing",
-        "steps": [
-            "Enable Carrier Aggregation to add a secondary carrier on the overloaded cell",
-            "Enable MLB to offload UEs to adjacent lightly-loaded cells",
-            "Lower PRB utilization alarm threshold so MLB triggers earlier",
-            "Check scheduler config for fair resource sharing across slices",
-            "Flag for Massive MIMO upgrade if PRB stays above 90% for 2+ hours",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Reduces PRB load by 25-35% and restores average user throughput",
-    },
-    "Transport congestion": {
-        "action": "Reroute traffic and upgrade backhaul QoS settings",
-        "steps": [
-            "Check transport link utilization on the affected gNB backhaul port",
-            "Reroute to alternate path via BGP/OSPF metric adjustment",
-            "Apply DSCP remarking to prioritize 5G user-plane (GTP-U) traffic",
-            "Tune AQM settings (CoDel or FQ-CoDel) to reduce buffer bloat",
-            "Escalate to transport team for capacity upgrade if link stays above 80%",
-        ],
-        "priority": "Critical", "effort": "High", "eta_hours": 6, "auto": False,
-        "impact": "Reduces latency from over 100 ms to under 30 ms, stops RLC retransmissions",
-    },
-    "Missing neighbor relation": {
-        "action": "Run ANR audit and add missing neighbor cells",
-        "steps": [
-            "Trigger ANR scan on the affected cell",
-            "Cross-check with cell topology map for geographically adjacent gNBs",
-            "Manually add missing NCRs in the OMC interface",
-            "Verify X2/Xn signaling is established with each new neighbor",
-            "Run a test handover call to confirm the relationship works",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Eliminates ping-pong HO failures and reduces call drops by 30-50%",
-    },
-    "Coverage hole": {
-        "action": "Deploy a small cell or repeater in the coverage gap",
-        "steps": [
-            "Confirm the coverage hole via drive test or UE measurement reports",
-            "Identify suitable indoor or outdoor small cell deployment sites",
-            "Temporarily adjust adjacent macrocell tilt to partially fill the gap",
-            "Submit site acquisition request for permanent small cell installation",
-            "Integrate small cell with core network and neighbor list",
-        ],
-        "priority": "High", "effort": "High", "eta_hours": 72, "auto": False,
-        "impact": "Permanently resolves coverage gap, improves indoor RSRP by 15-20 dB",
-    },
-    "PCI collision": {
-        "action": "Reassign PCI to eliminate the collision or confusion",
-        "steps": [
-            "Extract the current PCI allocation plan from the OMC",
-            "Identify conflicting PCIs within 3-cell reuse distance (mod-3 collision)",
-            "Assign a new PCI from available pool respecting mod-3 and mod-30 rules",
-            "Push PCI change via OMC (no service interruption required)",
-            "Verify UE RRC measurement reports no longer show PCI confusion",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Eliminates HO confusion and improves cell selection accuracy",
-    },
-    "UL/DL interference": {
-        "action": "Optimize UL power control and activate interference cancellation",
-        "steps": [
-            "Set UL SINR target to 5 dB and enable closed-loop power control",
-            "Enable IRC (Interference Rejection Combining) on affected cells",
-            "Check for rogue UEs transmitting at max power causing UL interference",
-            "Coordinate with neighboring operators on shared frequency bands",
-            "Apply frequency reuse pattern adjustments if TDD interference is the cause",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 3, "auto": True,
-        "impact": "Improves UL BLER from above 15% to below 5%, boosts MOS by 0.5-1.0",
-    },
-    "PRB congestion": {
-        "action": "Load balance users and activate carrier aggregation",
-        "steps": [
-            "Identify top PRB-consuming UEs via scheduler statistics",
-            "Apply QoS throttling to best-effort traffic on the mMTC slice",
-            "Activate 5G CA combining n78 and n28 bands for extra capacity",
-            "Enable 256-QAM modulation to improve spectral efficiency per PRB",
-            "Schedule capacity planning review if peak load exceeds 85% daily",
-        ],
-        "priority": "High", "effort": "Low", "eta_hours": 1, "auto": True,
-        "impact": "Frees 20-30% PRB and restores average user throughput to normal",
-    },
-    "Low SINR": {
-        "action": "Optimize antenna tilt and update beamforming weights",
-        "steps": [
-            "Reduce electrical downtilt by 1-2 degrees on the affected sector",
-            "Update beamforming codebook weights for target UE cluster locations",
-            "Enable 3D beamforming if Massive MIMO hardware is available",
-            "Verify antenna cable integrity by checking for high VSWR readings",
-            "Confirm no neighboring cell is overshooting into this sector",
-        ],
-        "priority": "High", "effort": "Medium", "eta_hours": 3, "auto": False,
-        "impact": "Improves average SINR by 3-5 dB with throughput gains of 15-25%",
-    },
-    "Overshooting cell": {
-        "action": "Increase downtilt to contain the cell footprint",
-        "steps": [
-            "Increase mechanical downtilt by 3-5 degrees on the overshooting sector",
-            "Reduce DL Tx power by 3 dB to shrink the coverage footprint",
-            "Update neighbor lists of cells newly exposed after coverage shrink",
-            "Verify HO boundaries are re-established correctly after the change",
-            "Run an automated coverage verification scan to confirm the fix",
-        ],
-        "priority": "Medium", "effort": "Low", "eta_hours": 2, "auto": False,
-        "impact": "Eliminates interference to 2-4 adjacent cells and reduces call drop rate",
-    },
-    "PDU session drop": {
-        "action": "Check UPF path health and tune session timer parameters",
-        "steps": [
-            "Verify UPF instance health and check N3/N9 interface status",
-            "Extend PDU session inactivity timer from 30 seconds to 120 seconds",
-            "Inspect SMF logs for unexpected AMF-triggered session releases",
-            "Verify QoS Flow Binding is correctly configured for the affected slice",
-            "Restart UPF session management process if drop rate stays above 5%",
-        ],
-        "priority": "Critical", "effort": "Medium", "eta_hours": 2, "auto": False,
-        "impact": "Eliminates unexpected data session interruptions for affected users",
-    },
-}
-
+# Knowledge Base (Deprecated in favor of AI)
 DEFAULT_REMEDIATION = {
     "action": "Manual investigation required",
     "steps": [
+        "Check LLM service availability",
         "Collect full OMC performance counters for the affected cell",
         "Review the alarm history for the past 24 hours",
-        "Perform a drive test in the affected geographic area",
-        "Escalate to the Level-2 RF engineering team with collected data",
+        "Escalate to the Level-2 RF engineering team"
     ],
     "priority": "Medium", "effort": "High", "eta_hours": 8, "auto": False,
-    "impact": "Requires manual analysis to determine the correct resolution path",
+    "summary": "The LLM API is unavailable. Defaulting to manual investigation.",
+    "impact": "Requires manual analysis to determine the correct resolution path"
 }
 
-PRIORITY_SCORE = {"Critical": 4, "High": 3, "Medium": 2, "Low": 1}
-EFFORT_SCORE   = {"Low": 3, "Medium": 2, "High": 1}
+def get_llm_port():
+    app_py_path = ROOT / "LLM" / "App.py"
+    if app_py_path.exists():
+        content = app_py_path.read_text(encoding="utf-8")
+        match = re.search(r'port\s*=\s*(\d+)', content)
+        if match:
+            return int(match.group(1))
+    return 8081
 
-
-def _build_remediation_prompt(rca_event: dict, remediation: dict) -> str:
-    """Shared prompt for Ollama / Gemini — JSON output schema."""
-    primary = remediation.get("primary_action", {})
-    payload = {
-        "cell_id": rca_event.get("cell_id"),
-        "severity": rca_event.get("anomaly_severity"),
-        "anomaly_score": rca_event.get("anomaly_score"),
-        "kpi_snapshot": rca_event.get("kpi_snapshot", {}),
-        "rca": rca_event.get("rca", {}),
-        "rule_based_recommendation": remediation,
-    }
-    return (
-        "You are a telecom NOC remediation assistant.\n"
-        "Refine the rule-based recommendation with concise, safe and actionable guidance.\n"
-        "Return ONLY valid JSON with this schema:\n"
-        "{\n"
-        '  "summary": "short operational summary",\n'
-        '  "risk_level": "Low|Medium|High|Critical",\n'
-        '  "rollback_steps": ["step1", "step2"],\n'
-        '  "operator_notes": ["note1", "note2"],\n'
-        '  "revised_primary_action": {\n'
-        '    "action": "string",\n'
-        '    "steps": ["..."],\n'
-        '    "priority": "Low|Medium|High|Critical",\n'
-        '    "effort": "Low|Medium|High",\n'
-        '    "eta_hours": 1,\n'
-        '    "auto": false,\n'
-        '    "impact": "string"\n'
-        "  }\n"
-        "}\n"
-        "Rules:\n"
-        "- Keep at most 5 action steps.\n"
-        "- If severity is critical, force auto=false.\n"
-        "- Keep realistic ETA.\n\n"
-        f"INPUT_EVENT={json.dumps(payload, ensure_ascii=True)}\n"
-        f"CURRENT_PRIMARY_ACTION={json.dumps(primary, ensure_ascii=True)}\n"
-    )
-
-
-def _parse_llm_json_text(text: str) -> dict | None:
-    """Strip optional markdown fences and parse JSON."""
-    t = (text or "").strip()
-    if t.startswith("```"):
-        lines = t.split("\n")
-        if lines and lines[0].startswith("```"):
-            lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        t = "\n".join(lines).strip()
-    try:
-        return json.loads(t)
-    except json.JSONDecodeError:
-        return None
-
-class LocalPhi2Advisor:
-    def __init__(self, model_path="lora-anomaly-model"):
-        self.tokenizer = AutoTokenizer.from_pretrained("microsoft/phi-2")
-        self.model = AutoModelForCausalLM.from_pretrained(model_path)
-
-    def enrich(self, rca_event, remediation):
-        prompt = _build_remediation_prompt(rca_event, remediation)
-
-        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True)
-        
-        with torch.no_grad():
-            outputs = self.model.generate(
-                **inputs,
-                max_new_tokens=200,
-                temperature=0.2
-            )
-
-        text = self.tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        return _parse_llm_json_text(text)
-class GeminiRemediationAdvisor:
-    """
-    Google Gemini (AI Studio / Generative Language API).
-    API key: set env GEMINI_API_KEY or GOOGLE_API_KEY — never commit keys.
-    Uses header x-goog-api-key (recommended); falls back if JSON MIME mode returns 400.
-    """
-
-    _GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent"
-
-    def __init__(
-        self,
-        api_key: str,
-        model: str = "gemini-2.0-flash",
-        timeout_sec: int = 45,
-    ):
-        self.api_key = api_key
-        self.model = model
-        self.timeout_sec = timeout_sec
-        self._logged_failure = False
-
-    def _generate_raw(self, prompt: str, generation_config: dict) -> dict | None:
-        """POST generateContent; returns parsed JSON body or None on failure."""
-        url = self._GEMINI_URL.format(model=self.model)
-        body = {
-            "contents": [{"role": "user", "parts": [{"text": prompt}]}],
-            "generationConfig": generation_config,
-        }
-        data = json.dumps(body).encode("utf-8")
-        req = urllib.request.Request(
-            url,
-            data=data,
-            headers={
-                "Content-Type": "application/json",
-                "x-goog-api-key": self.api_key,
-            },
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except json.JSONDecodeError as e:
-            log.debug("Gemini invalid JSON response: %s", e)
-            return None
-        except urllib.error.HTTPError as e:
-            err_bytes = e.read()
-            try:
-                err_json = json.loads(err_bytes.decode("utf-8"))
-                msg = err_json.get("error", {}).get("message", err_bytes.decode("utf-8", errors="replace")[:800])
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                msg = err_bytes.decode("utf-8", errors="replace")[:800]
-            log.debug("Gemini HTTP %s: %s", e.code, msg)
-            self._last_http_code = e.code
-            self._last_http_msg = msg
-            return None
-        except (urllib.error.URLError, TimeoutError, OSError) as e:
-            log.debug("Gemini network error: %s", e)
-            self._last_http_code = None
-            self._last_http_msg = str(e)
-            return None
-
-    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
-        prompt = _build_remediation_prompt(rca_event, remediation)
-        self._last_http_code = None
-        self._last_http_msg = ""
-
-        # Prefer structured JSON output; some keys/models return 400 — retry without responseMimeType.
-        configs = [
-            {"temperature": 0.2, "responseMimeType": "application/json"},
-            {"temperature": 0.2},
-        ]
-        raw = None
-        for i, gen_cfg in enumerate(configs):
-            raw = self._generate_raw(prompt, gen_cfg)
-            if raw is not None:
-                break
-            if i == 0 and getattr(self, "_last_http_code", None) == 400:
-                log.debug("Gemini: retrying without JSON responseMimeType")
-
-        if raw is None:
-            if not self._logged_failure:
-                hint = ""
-                code = getattr(self, "_last_http_code", None)
-                msg = (self._last_http_msg or "")[:300]
-                if code == 404:
-                    hint = " Model not found — try: --gemini-model gemini-1.5-flash or gemini-2.5-flash"
-                elif code == 403:
-                    hint = " Check API key and that Generative Language API is enabled for the key (Google AI Studio)."
-                elif code == 429:
-                    hint = " Rate limit — wait or reduce volume; avoid --llm-on-catch-up on large feeds."
-                elif code == 400 and "API key" in msg:
-                    hint = " Invalid or restricted API key."
-                log.warning(
-                    "Gemini request failed (%s). %s — rules-only refinements.%s",
-                    code if code is not None else "network",
-                    msg or "no detail",
-                    hint,
-                )
-                self._logged_failure = True
-            else:
-                log.debug("Gemini request failed again: %s", self._last_http_msg[:200] if self._last_http_msg else "")
-            return None
-
-        try:
-            parts = raw["candidates"][0]["content"]["parts"]
-            text = "".join(p.get("text", "") for p in parts)
-        except (KeyError, IndexError, TypeError):
-            log.debug("Gemini response parse failed (missing candidates/parts): %s", raw)
-            return None
-
-        parsed = _parse_llm_json_text(text)
-        if not parsed:
-            log.debug("Gemini returned non-JSON text (first 400 chars): %s", (text or "")[:400])
-        return parsed
-
-
-class OllamaRemediationAdvisor:
-    """
-    Optional free local LLM advisor (Ollama backend).
-    It enriches recommendations but never blocks the baseline rules pipeline.
-    """
-    def __init__(self, model: str = "llama3.1:8b", endpoint: str = "http://localhost:11434/api/generate",
-                 timeout_sec: int = 25):
-        self.model = model
-        self.endpoint = endpoint
-        self.timeout_sec = timeout_sec
-        self._logged_failure = False
-
-    def enrich(self, rca_event: dict, remediation: dict) -> dict | None:
-        prompt = _build_remediation_prompt(rca_event, remediation)
-        body = {
-            "model": self.model,
-            "prompt": prompt,
-            "stream": False,
-            "format": "json",
-            "options": {"temperature": 0.2},
-        }
-        req = urllib.request.Request(
-            self.endpoint,
-            data=json.dumps(body).encode("utf-8"),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        try:
-            with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
-                raw = json.loads(resp.read().decode("utf-8"))
-            answer = (raw.get("response") or "").strip()
-            if not answer:
-                return None
-            parsed = _parse_llm_json_text(answer)
-            return parsed
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
-            log.debug("Ollama request failed: %s", e)
-            if not self._logged_failure:
-                log.warning(
-                    "Ollama unreachable — using rules-only; see logs/remediation_agent.log. Use --verbose for console."
-                )
-                self._logged_failure = True
-            return None
+LLM_PORT = get_llm_port()
 
 
 class RemediationEngine:
-    def _score(self, action, confidence):
-        p = PRIORITY_SCORE.get(action.get("priority", "Low"), 1)
-        e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
-        return round(p * e * (confidence / 100.0), 3)
+    def __init__(self):
+        self.cache_file = OUTPUT_DIR / "llm_cache.jsonl"
+        self.cache = {}
+        if self.cache_file.exists():
+            try:
+                for line in self.cache_file.read_text(encoding='utf-8').splitlines():
+                    line = line.strip()
+                    if not line: continue
+                    entry = json.loads(line)
+                    self.cache[entry["cache_key"]] = entry["data"]
+            except Exception as e:
+                log.warning(f"Could not load LLM cache: {e}")
 
-    def _summary(self, cause, action, cell_id, severity, neighbour_escalated=False):
-        mode    = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
-        eta     = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
-        cluster = " This is a CLUSTER EVENT — multiple adjacent cells are affected simultaneously."                   if neighbour_escalated else ""
-        return (
-            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}.{cluster} "
-            f"The recommended fix is to {action['action'].lower()}, which {mode}. "
-            f"Expected resolution time is {eta}. "
-            f"Once applied, this should {action['impact'].lower()}."
-        )
+    def _append_to_cache(self, cache_key, data):
+        try:
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            entry = {"cache_key": cache_key, "data": data}
+            with open(self.cache_file, "a", encoding='utf-8') as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            log.warning(f"Could not append to LLM cache: {e}")
 
     def recommend(self, rca_event):
         rca                 = rca_event.get("rca", {})
-        cause               = rca.get("primary_cause", "")
+        cause               = rca.get("primary_cause", "Unknown")
         confidence          = float(rca.get("confidence_pct", 50.0))
-        severity            = rca_event.get("anomaly_severity", "medium")
+        severity            = rca_event.get("anomaly_severity", "LOW").upper()
         cell_id             = rca_event.get("cell_id", "unknown")
-        ranked              = rca.get("ranked_causes", [])
-        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
+        site_id             = rca_event.get("site_id", "unknown")
+        region              = rca_event.get("region", "unknown")
+        rca_id              = rca_event.get("rca_event_id", "unknown")
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or rca.get("neighbour_escalated", False)
+        vendor              = rca_event.get("vendor", "unknown")
+        band                = rca_event.get("nr_band", "unknown")
 
-        action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
-        action["score"]   = self._score(action, confidence)
-        action["summary"] = self._summary(cause, action, cell_id, severity,
-                                          neighbour_escalated)
+        cache_key = f"{cause}::{severity}::{vendor}::{band}"
+        llm_data = None
+        
+        # Check if we should try reconnecting to the LLM API
+        if not getattr(self, "_llm_available", True) and time.time() > getattr(self, "_llm_next_retry", 0):
+            log.info("Cooldown passed. Attempting to reconnect to Mistral AI API...")
+            self._llm_available = True
 
+        if cache_key in self.cache:
+            log.info(f"LLM Cache Hit for [{cache_key}] - Skipping Mistral AI API.")
+            cached = deepcopy(self.cache[cache_key])
+            llm_data = cached["llm_data"]
+            # Swap dynamic fields
+            sum_text = llm_data.get("summary", "")
+            sum_text = sum_text.replace(cached["orig_cell"], cell_id)
+            sum_text = sum_text.replace(cached["orig_rca_id"], rca_id)
+            sum_text = sum_text.replace(cached["orig_site"], site_id)
+            sum_text = sum_text.replace(cached["orig_region"], region)
+            llm_data["summary"] = sum_text
+            
+            if "incident_info" in llm_data:
+                llm_data["incident_info"]["cell"] = cell_id
+                llm_data["incident_info"]["site"] = site_id
+                llm_data["incident_info"]["region"] = region
+                llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
+        elif not getattr(self, "_llm_available", True):
+            # If we already determined the LLM is down, skip to fallback instantly
+            pass
+        else:
+            url = f"http://127.0.0.1:{LLM_PORT}/predict"
+            safe_event = clean_nan(rca_event)
+            max_retries = 3
+            for attempt in range(1, max_retries + 1):
+                try:
+                    response = requests.post(url, json=safe_event, timeout=600.0)
+                    if response.status_code == 200:
+                        data = response.json()
+                        if "error" in data:
+                            log.warning(f"LLM returned error: {data['error']} (attempt {attempt}/{max_retries})")
+                        elif "response" in data:
+                            llm_data = data["response"]
+                            cache_entry = {
+                                "orig_cell": cell_id,
+                                "orig_site": site_id,
+                                "orig_region": region,
+                                "orig_rca_id": rca_id,
+                                "llm_data": llm_data
+                            }
+                            self.cache[cache_key] = cache_entry
+                            self._append_to_cache(cache_key, cache_entry)
+                            break  # success
+                        elif "raw_response" in data:
+                            log.warning("LLM API returned raw_response instead of structured JSON.")
+                    else:
+                        log.warning(f"LLM API returned HTTP {response.status_code} (attempt {attempt}/{max_retries})")
+                except requests.exceptions.ConnectionError as e:
+                    log.warning("LLM API is unreachable. Disabling queries for 60s to prevent freezing.")
+                    self._llm_available = False
+                    self._llm_next_retry = time.time() + 60
+                    break
+                except requests.exceptions.RequestException as e:
+                    log.warning(f"LLM API request failed ({e}) — attempt {attempt}/{max_retries}")
+                
+                # Exponential backoff before retry (if not disabled)
+                if getattr(self, "_llm_available", True) and attempt < max_retries:
+                    backoff = 3 ** attempt  # 3s, 9s
+                    log.info(f"  Retrying in {backoff}s ...")
+                    time.sleep(backoff)
+        if llm_data:
+            info = llm_data.get("incident_info", {})
+            steps = llm_data.get("remediation_steps", [])
+            
+            raw_eta = str(info.get("eta", "8"))
+            parsed_eta = re.sub(r'[^0-9]', '', raw_eta)
+            eta_val = int(parsed_eta) if parsed_eta else 8
+            
+            action = {
+                "summary": llm_data.get("summary", "No summary available."),
+                "steps": steps,
+                "action": steps[0] if (steps and isinstance(steps, list)) else "Auto-generated investigation",
+                "auto": str(info.get("mode", "Manual")).lower() == "auto",
+                "eta_hours": eta_val,
+                "priority": info.get("severity", "Medium"),
+                "impact": "Implements exact instructions listed in remediation steps."
+            }
+            alts = []
+            for alt in llm_data.get("alternative_causes", []):
+                raw_conf = str(alt.get("confidence_pct", 0.0)).replace("%", "").strip()
+                try:
+                    conf_val = float(raw_conf) / 100.0
+                except ValueError:
+                    conf_val = 0.0
+
+                alts.append({
+                    "cause": alt.get("cause", "Unknown alternative"),
+                    "probability": conf_val,
+                    "action": "Alternative proposed fix",
+                    "priority": "Low",
+                    "eta_hours": 8
+                })
+        else:
+            action = deepcopy(DEFAULT_REMEDIATION)
+            alts = []
+            
         # For cluster events, prepend a mandatory NOC notification step
         if neighbour_escalated:
             action["steps"] = [
-                "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
+                "CLUSTER ALERT: Notify NOC immediately \u2014 multiple adjacent cells affected",
                 "Open a P1 incident ticket and assign to senior RF engineer",
-            ] + action["steps"]
+            ] + action.get("steps", [])
             action["priority"] = "Critical"
-            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
-
-        alternatives = []
-        for alt in ranked[1:4]:
-            alt_cause  = alt.get("cause", "")
-            alt_prob   = float(alt.get("probability", 0)) * 100
-            alt_action = deepcopy(REMEDIATION_KB.get(alt_cause, DEFAULT_REMEDIATION))
-            alt_action["cause"]       = alt_cause
-            alt_action["probability"] = alt.get("probability", 0)
-            alt_action["score"]       = self._score(alt_action, alt_prob)
-            alternatives.append(alt_action)
-
+            action["eta_hours"] = max(1, action.get("eta_hours", 2) - 1)
+            
         return {
             "cause":               cause,
             "confidence_pct":      confidence,
             "primary_action":      action,
-            "alternatives":        alternatives,
+            "alternatives":        alts,
             "similar_resolved":    rca.get("similar_incidents", []),
             "neighbour_escalated": neighbour_escalated,
             "is_cluster_event":    neighbour_escalated,
@@ -601,7 +280,7 @@ def apply_llm_refinement(
 class DashboardState:
     def __init__(self):
         self._lock       = threading.Lock()
-        self.events      = deque(maxlen=300)
+        self.events      = deque()  # no maxlen — keep all events for full history
         self.kpi_history = {}
         self.cell_status = {}
         self.stats       = dict(total_anomalies=0, critical=0, high=0,
@@ -615,7 +294,6 @@ class DashboardState:
             log.warning(f"Topology file not found at {TOPOLOGY_PATH}")
             return []
         try:
-            import csv
             rows = []
             with open(TOPOLOGY_PATH, newline='', encoding='utf-8') as f:
                 reader = csv.DictReader(f)
@@ -672,13 +350,17 @@ class DashboardState:
 
     def snapshot(self):
         with self._lock:
+            # Return only the last 2000 events to prevent browser memory crashes
+            # 18,000+ events in a single WebSocket message will stall most browsers.
+            recent_events = list(self.events)[-2000:]
             return {
                 "type":        "snapshot",
                 "stats":       dict(self.stats),
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
-                "events":      list(self.events)[-100:],
+                "events":      recent_events, 
                 "topology":    self.topology,
+                "full_history_count": len(self.events)
             }
 
 
@@ -707,15 +389,22 @@ async def ws_handler(websocket):
 
 async def _broadcast(msg):
     with WS_LOCK:
-        clients = set(WS_CLIENTS)
-    if clients:
-        await asyncio.gather(*[c.send(msg) for c in clients], return_exceptions=True)
+        clients = list(WS_CLIENTS)
+    for client in clients:
+        try:
+            # Sequential send prevents the "AssertionError" drain clash on Windows
+            await client.send(msg)
+        except Exception:
+            # If a client is disconnected/stalled, don't crash the broadcast for others
+            continue
 
 
 def clean_nan(obj):
     """Recursively replace NaN floats with None so json.dumps never fails."""
-    if isinstance(obj, float) and math.isnan(obj):
-        return None
+    if isinstance(obj, float):
+        return None if math.isnan(obj) else obj
+    if isinstance(obj, (str, int, bool, type(None))):
+        return obj
     if isinstance(obj, dict):
         return {k: clean_nan(v) for k, v in obj.items()}
     if isinstance(obj, list):
@@ -761,8 +450,9 @@ def append_stream_essential(
 
 
 async def _ws_main(host, port):
-    log.debug("WebSocket server ws://%s:%s", host, port)
-    async with ws_serve(ws_handler, host, port):
+    log.info(f"WebSocket server on ws://{host}:{port}")
+    # Disable ping_interval to stop the "keepalive ping failed" noise on Windows
+    async with ws_serve(ws_handler, host, port, ping_interval=None):
         WS_READY.set()
         await asyncio.Future()
 
@@ -785,7 +475,6 @@ def start_http_server(port):
 
 
 def prepare_dashboard(ws_port):
-    import re
     html_path = DASHBOARD_DIR / "index.html"
     if not html_path.exists():
         log.error(f"Dashboard index.html not found at {html_path}")
@@ -815,6 +504,13 @@ class FeedReader:
         self.llm_provider = llm_provider
         self.llm_on_catch_up = llm_on_catch_up
         self.count  = 0
+        self._feed_fh = None  # persistent file handle for remediation_feed
+
+    def _ensure_feed_handle(self):
+        if self._feed_fh is None:
+            REMEDIATION_FEED.parent.mkdir(parents=True, exist_ok=True)
+            self._feed_fh = open(REMEDIATION_FEED, "a", encoding="utf-8")
+        return self._feed_fh
 
     def _process(self, line, phase):
         line = line.strip()
@@ -847,7 +543,7 @@ class FeedReader:
             "rem_event_id":     f"REM-{self.count:07d}",
             "agent":            "RemediationAgent",
             "phase":            phase,
-            "processed_at":     datetime.utcnow().isoformat() + "Z",
+            "processed_at":     datetime.now(timezone.utc).isoformat(),
             "source_rca_id":    rca_event.get("rca_event_id", ""),
             "timestamp":        rca_event.get("timestamp", ""),
             "cell_id":          rca_event.get("cell_id", ""),
@@ -864,25 +560,23 @@ class FeedReader:
             "remediation":      remediation,
         }
 
-        with open(REMEDIATION_FEED, "a", encoding="utf-8") as f:
-            f.write(json.dumps(clean_nan(out), default=str) + "\n")
+        fh = self._ensure_feed_handle()
+        fh.write(json.dumps(clean_nan(out), default=str) + "\n")
+        fh.flush()
 
         STATE.push(out)
-        broadcast_event(out)
+        
+        # Only broadcast to live dashboards during the LIVE phase.
+        # Broadcasting 18,000 events during catch-up will overflow WebSocket buffers.
+        if phase == "live":
+            broadcast_event(out)
 
-        append_stream_essential(
-            phase=phase,
-            out=out,
-            remediation=remediation,
-            llm_used=run_llm,
-        )
-
-        sev   = str(out["anomaly_severity"] or "").upper()
-        cause = remediation["cause"]
-        act   = remediation["primary_action"]
-        mode  = "[AUTO]" if act["auto"] else "[MANUAL]"
+        sev   = out["anomaly_severity"].upper()
+        cause = remediation.get("cause", "")
+        act   = remediation.get("primary_action", {})
+        mode  = "[AUTO]" if act.get("auto") else "[MANUAL]"
         tag   = "[!!]" if sev in ("HIGH", "CRITICAL") else "[ ~ ]"
-        clog("%s [%s] %s | %s | %s %s", tag, sev, out["cell_id"], cause, act["action"], mode)
+        log.info(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act.get('action', '')} {mode}")
 
     def run(self, tail_interval):
         REMEDIATION_FEED.write_text("", encoding="utf-8")
@@ -901,27 +595,39 @@ class FeedReader:
         else:
             log.warning("rca_feed.jsonl not found at %s — waiting for Agent 2 …", RCA_FEED)
 
-        clog("Live tail (Ctrl+C to stop)")
-        while True:
-            try:
-                if RCA_FEED.exists():
-                    with open(RCA_FEED, "r", encoding="utf-8") as f:
-                        f.seek(pos)
-                        new_lines = f.readlines()
-                        pos = f.tell()
-                    for line in new_lines:
+        log.info("=" * 60)
+        log.info("PHASE 2 - LIVE TAIL  (Ctrl+C to stop)")
+        log.info("=" * 60)
+
+        try:
+            with open(RCA_FEED, "r", encoding="utf-8") as tail_fh:
+                tail_fh.seek(pos)
+                while True:
+                    line = tail_fh.readline()
+                    if line:
                         self._process(line, "live")
-                time.sleep(tail_interval)
-            except KeyboardInterrupt:
-                print("\n  Feed reader stopped.", flush=True)
-                break
+                    else:
+                        # Detect if the DetectionAgent truncated the file
+                        try:
+                            if tail_fh.tell() > RCA_FEED.stat().st_size:
+                                log.warning("Feed truncated! Resetting tail to beginning.")
+                                tail_fh.seek(0)
+                                continue
+                        except Exception:
+                            pass
+                        time.sleep(tail_interval)
+        except KeyboardInterrupt:
+            log.info("Feed reader stopped.")
+        finally:
+            if self._feed_fh:
+                self._feed_fh.close()
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
-    p.add_argument("--http-port",     type=int,   default=8088)
-    p.add_argument("--tail-interval", type=float, default=1.0)
+    p.add_argument("--http-port",     type=int,   default=8080)
+    p.add_argument("--tail-interval", type=float, default=0.6) 
     p.add_argument("--no-browser",    action="store_true")
     p.add_argument(
         "--llm-backend",
