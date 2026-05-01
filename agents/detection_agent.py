@@ -4,13 +4,14 @@ QoSBuddy -- DetectionAgent
 Unified anomaly detection and root-cause analysis agent.
 
 Pipeline:
-  1. BATCH TRAINING   — trains LSTM-AE, Temporal-CNN, LSTM-Predictor
-                        (anomaly detection) and RF classifier + k-NN
-                        index (root cause analysis) on historical CSV data.
+  1. BATCH TRAINING   — trains GRU-AE, Temporal-CNN, GRU-Predictor,
+                        and SARIMA per-cell forecasters (anomaly detection)
+                        plus XGBoost + RF classifiers + k-NN index (root cause
+                        analysis) on historical CSV data.
   2. LIVE INFERENCE   — streams time_series_kpi.csv row-by-row,
-                        runs rule engine + DL ensemble + neighbour
+                        runs rule engine + DL ensemble (GRU) + SARIMA + neighbour
                         correlation, and for every anomaly, performs
-                        inline RCA (RF classification + SHAP + k-NN).
+                        inline RCA (XGBoost + SHAP + k-NN).
                         Emits structured JSON events to rca_feed.jsonl.
 
 Output feed: data/output/rca_feed.jsonl
@@ -41,11 +42,13 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report
 from sklearn.neighbors import NearestNeighbors
 import joblib
+import xgboost as xgb
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, TensorDataset
+from statsmodels.tsa.arima.model import ARIMA
 
 import mlflow
 import mlflow.pytorch
@@ -105,9 +108,10 @@ RCA_FEED = OUTPUT_DIR / "rca_feed.jsonl"
 
 # Anomaly detection models
 SCALER_PATH = MODEL_DIR / "scaler.joblib"
+SARIMA_PATH = MODEL_DIR / "sarima_forecasters.joblib"
 
 # RCA models
-RF_PATH          = MODEL_DIR / "rca_rf_classifier.joblib"
+XGB_PATH         = MODEL_DIR / "rca_xgb_classifier.joblib"
 RCA_SCALER_PATH  = MODEL_DIR / "rca_scaler.joblib"
 LABEL_ENC_PATH   = MODEL_DIR / "rca_label_encoder.joblib"
 KNN_PATH         = MODEL_DIR / "rca_knn_index.joblib"
@@ -187,26 +191,27 @@ except (FileNotFoundError, json.JSONDecodeError):
 # ══════════════════════════════════════════════════════════════════════════════
 # DEEP LEARNING ANOMALY MODELS
 # ══════════════════════════════════════════════════════════════════════════════
-class LSTMAutoencoder(nn.Module):
+class GRUAutoencoder(nn.Module):
     """
     Trained on NORMAL sequences only.
     High reconstruction error at inference -> likely anomaly.
+    Uses GRU for faster streaming performance than LSTM.
     """
     def __init__(self, input_dim: int, hidden_dim: int = 64, latent_dim: int = 16, num_layers: int = 2):
         super().__init__()
-        self.encoder_lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
+        self.encoder_gru = nn.GRU(input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
         self.encoder_fc   = nn.Linear(hidden_dim, latent_dim)
         self.decoder_fc   = nn.Linear(latent_dim, hidden_dim)
-        self.decoder_lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
+        self.decoder_gru = nn.GRU(hidden_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
         self.decoder_out  = nn.Linear(hidden_dim, input_dim)
         self.register_buffer('mse_p5',  torch.tensor(0.0))
         self.register_buffer('mse_p95', torch.tensor(1.0))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        _, (h, _) = self.encoder_lstm(x)
+        _, h = self.encoder_gru(x)
         latent    = self.encoder_fc(h[-1])
         repeated  = self.decoder_fc(latent).unsqueeze(1).repeat(1, x.shape[1], 1)
-        out, _    = self.decoder_lstm(repeated)
+        out, _    = self.decoder_gru(repeated)
         return self.decoder_out(out)
 
     def anomaly_score(self, x: torch.Tensor) -> np.ndarray:
@@ -222,6 +227,53 @@ class LSTMAutoencoder(nn.Module):
             mse = torch.mean((normal_tensor - self.forward(normal_tensor)) ** 2, dim=(1, 2))
             self.mse_p5  = torch.quantile(mse, 0.05)
             self.mse_p95 = torch.quantile(mse, 0.95)
+
+
+class SARIMAForecaster:
+    """
+    Statistical forecasting model using ARIMA(2,1,1) per cell.
+    Acts as an independent statistical signal in the anomaly ensemble.
+    """
+    ORDER = (2, 1, 1)
+
+    def __init__(self):
+        self.models = {}
+
+    def fit(self, df: pd.DataFrame, scaler, features: list):
+        log.info("Fitting SARIMA forecasters per cell ...")
+        cells = df['cell_id'].unique()
+        for cell in tqdm(cells, desc="  SARIMA"):
+            cell_data = df[df['cell_id'] == cell].sort_values('timestamp')
+            if len(cell_data) < 20: continue
+            
+            # Use a representative KPI (e.g., RSRP or SINR) or an average of all
+            # For simplicity, we forecast the first feature (usually RSRP)
+            # Optimization: ARIMA doesn't need massive history. Use only the last 500 points.
+            y = cell_data[features[0]].values[-500:]
+            try:
+                model = ARIMA(y, order=self.ORDER)
+                self.models[cell] = model.fit()
+            except:
+                continue
+        print("\n\n", flush=True)  # Force a clean line break after tqdm finishes
+
+    def score(self, cell_id: str, current_kpis: np.ndarray) -> float:
+        if cell_id not in self.models: return 0.0
+        try:
+            forecast = self.models[cell_id].forecast(steps=1)[0]
+            actual = current_kpis[0] # RSRP
+            diff = abs(actual - forecast)
+            # Simple scaling to 0-10
+            return min(10.0, diff * 2.0)
+        except:
+            return 0.0
+
+    def save(self, path: Path):
+        joblib.dump(self.models, path)
+
+    def load(self, path: Path):
+        if path.exists():
+            self.models = joblib.load(path)
 
 
 class TemporalCNN(nn.Module):
@@ -252,7 +304,7 @@ class TemporalCNN(nn.Module):
         x = self.drop(x)
         return torch.sigmoid(self.anomaly_head(x)).squeeze(-1)
 
-class LSTMPredictor(nn.Module):
+class GRUPredictor(nn.Module):
     """
     Predicts future anomaly score from a sliding window of KPI values.
     Input:  (batch, seq_len, n_features)
@@ -260,7 +312,7 @@ class LSTMPredictor(nn.Module):
     """
     def __init__(self, input_dim: int, hidden_dim: int = 64, num_layers: int = 2):
         super().__init__()
-        self.lstm = nn.LSTM(
+        self.gru = nn.GRU(
             input_dim, hidden_dim, num_layers, batch_first=True, 
             dropout=0.2 if num_layers > 1 else 0
         )
@@ -273,7 +325,7 @@ class LSTMPredictor(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        _, (h, _) = self.lstm(x)
+        _, h = self.gru(x)
         return self.head(h[-1])
 
 
@@ -329,15 +381,18 @@ class BatchTrainer:
 
         # Anomaly detection models
         self.scaler      = StandardScaler()
-        self.lstm_ae     = None
+        self.gru_ae      = None
         self.tcnn        = None
+        self.gru_pred    = None
 
         # RCA models
         self.rca_scaler  = StandardScaler()
         self.le          = LabelEncoder()
-        self.rf          = RandomForestClassifier(
-            n_estimators=300, max_depth=20, min_samples_leaf=2,
-            class_weight="balanced", random_state=42, n_jobs=-1,
+        self.xgb         = xgb.XGBClassifier(
+            n_estimators=300, max_depth=6, learning_rate=0.1,
+            subsample=0.8, colsample_bytree=0.8,
+            random_state=42, n_jobs=-1,
+            objective="multi:softprob"
         )
         self.knn         = NearestNeighbors(n_neighbors=5, metric="euclidean", n_jobs=-1)
         self.incident_db: list[dict] = []
@@ -426,27 +481,27 @@ class BatchTrainer:
             batch_size=batch_size, shuffle=False
         )
 
-        log.info("Training LSTM-Autoencoder on NORMAL sequences ...")
-        mlflow.start_run(run_name="LSTM-AE", nested=True)
+        log.info("Training GRU-Autoencoder on NORMAL sequences ...")
+        mlflow.start_run(run_name="GRU-AE", nested=True)
         mlflow.log_params({"batch_size": batch_size, "learning_rate": 1e-3, "early_stopping_patience": 4})
 
-        self.lstm_ae = LSTMAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        optim_ae = torch.optim.Adam(self.lstm_ae.parameters(), lr=1e-3)
+        self.gru_ae = GRUAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        optim_ae = torch.optim.Adam(self.gru_ae.parameters(), lr=1e-3)
         es_ae = EarlyStopping(patience=4)
-        self.lstm_ae.train()
+        self.gru_ae.train()
         train_metrics = {}
         val_metrics = {}
 
         for epoch in range(1, 31):
-            self.lstm_ae.train()
+            self.gru_ae.train()
             epoch_loss = 0.0
-            pbar = tqdm(normal_loader, desc=f"  LSTM-AE Epoch {epoch:02d}", leave=False)
+            pbar = tqdm(normal_loader, desc=f"  GRU-AE Epoch {epoch:02d}", leave=False)
             for (batch_x,) in pbar:
                 batch_x = batch_x.to(self.device)
                 optim_ae.zero_grad()
-                loss = F.mse_loss(self.lstm_ae(batch_x), batch_x)
+                loss = F.mse_loss(self.gru_ae(batch_x), batch_x)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.lstm_ae.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(self.gru_ae.parameters(), 1.0)
                 optim_ae.step()
                 epoch_loss += loss.item() * len(batch_x)
                 pbar.set_postfix(loss=f"{loss.item():.5f}")
@@ -454,18 +509,18 @@ class BatchTrainer:
             train_metrics[epoch] = epoch_loss
 
             # Validation loss
-            self.lstm_ae.eval()
+            self.gru_ae.eval()
             v_loss = 0.0
             with torch.no_grad():
                 for (bx,) in val_loader:
                     bx = bx.to(self.device)
-                    v_loss += F.mse_loss(self.lstm_ae(bx), bx).item() * len(bx)
+                    v_loss += F.mse_loss(self.gru_ae(bx), bx).item() * len(bx)
             v_loss /= max(len(val_normal), 1)
             val_metrics[epoch] = v_loss
 
-            log.info(f"  LSTM-AE Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            log.info(f"  GRU-AE Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
             if es_ae.step(v_loss):
-                log.info(f"  ⛔ LSTM-AE early stop at epoch {epoch}")
+                log.info(f"  ⛔ GRU-AE early stop at epoch {epoch}")
                 break
         for ep in train_metrics:
             mlflow.log_metric("train_loss", train_metrics[ep], step=ep)
@@ -476,22 +531,22 @@ class BatchTrainer:
             mlflow.log_metric("early_stop_epoch", epoch)
         mlflow.end_run()
 
-        # Calibrate LSTM-AE continuously avoiding OOM
+        # Calibrate GRU-AE
         if len(val_normal) > 0:
-            self.lstm_ae.eval()
+            self.gru_ae.eval()
             mse_list = []
             with torch.no_grad():
                 for (batch_x,) in val_loader:
                     batch_x = batch_x.to(self.device)
-                    mse = torch.mean((batch_x - self.lstm_ae(batch_x)) ** 2, dim=(1, 2))
+                    mse = torch.mean((batch_x - self.gru_ae(batch_x)) ** 2, dim=(1, 2))
                     mse_list.append(mse.cpu())
             mse_tensor = torch.cat(mse_list)
-            self.lstm_ae.mse_p5 = torch.quantile(mse_tensor, 0.05).to(self.device)
-            self.lstm_ae.mse_p95 = torch.quantile(mse_tensor, 0.95).to(self.device)
+            self.gru_ae.mse_p5 = torch.quantile(mse_tensor, 0.05).to(self.device)
+            self.gru_ae.mse_p95 = torch.quantile(mse_tensor, 0.95).to(self.device)
 
-        # Checkpoint: save immediately so it's not lost if later models crash
-        torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
-        log.info("  ✓ LSTM-AE checkpointed")
+        # Checkpoint: save immediately
+        torch.save(self.gru_ae.state_dict(), MODEL_DIR / "gru_ae.pt")
+        log.info("  ✓ GRU-AE checkpointed")
 
         # 2. Train TCNN on all sequences (Supervised)
         log.info("Training Temporal CNN on ALL sequences ...")
@@ -567,38 +622,38 @@ class BatchTrainer:
         torch.save(self.tcnn.state_dict(), MODEL_DIR / "tcnn.pt")
         log.info("  ✓ TCNN checkpointed")
 
-        # 3. Train LSTM Predictor (Supervised future regression)
-        log.info("Training LSTM Predictor on ALL sequences ...")
-        mlflow.start_run(run_name="LSTM-Predictor", nested=True)
+        # 3. Train GRU Predictor (Supervised future regression)
+        log.info("Training GRU Predictor on ALL sequences ...")
+        mlflow.start_run(run_name="GRU-Predictor", nested=True)
         mlflow.log_params({"batch_size": batch_size, "learning_rate": 1e-3, "early_stopping_patience": 4})
 
-        lstm_loader = DataLoader(
+        gru_loader = DataLoader(
             TensorDataset(torch.FloatTensor(X_tr), torch.FloatTensor(yl_tr)),
             batch_size=batch_size, shuffle=True
         )
-        lstm_val_loader = DataLoader(
+        gru_val_loader = DataLoader(
             TensorDataset(torch.FloatTensor(X_val), torch.FloatTensor(yl_val)),
             batch_size=batch_size, shuffle=False
         )
 
-        self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        optim_pred = torch.optim.Adam(self.lstm_pred.parameters(), lr=1e-3)
+        self.gru_pred = GRUPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        optim_pred = torch.optim.Adam(self.gru_pred.parameters(), lr=1e-3)
         mse_loss = nn.MSELoss()
-        es_lstm = EarlyStopping(patience=4)
+        es_gru = EarlyStopping(patience=4)
         train_metrics = {}
         val_metrics = {}
 
         for epoch in range(1, 31):
-            self.lstm_pred.train()
+            self.gru_pred.train()
             epoch_loss = 0.0
-            pbar = tqdm(lstm_loader, desc=f"  LSTM-Predictor Epoch {epoch:02d}", leave=False)
+            pbar = tqdm(gru_loader, desc=f"  GRU-Predictor Epoch {epoch:02d}", leave=False)
             for batch_x, batch_y in pbar:
                 batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
                 optim_pred.zero_grad()
-                preds = self.lstm_pred(batch_x).squeeze(-1)
+                preds = self.gru_pred(batch_x).squeeze(-1)
                 loss = mse_loss(preds, batch_y)
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.lstm_pred.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(self.gru_pred.parameters(), 1.0)
                 optim_pred.step()
                 epoch_loss += loss.item() * len(batch_x)
                 pbar.set_postfix(loss=f"{loss.item():.5f}")
@@ -606,38 +661,38 @@ class BatchTrainer:
             train_metrics[epoch] = epoch_loss
 
             # Validation loss
-            self.lstm_pred.eval()
+            self.gru_pred.eval()
             v_loss = 0.0
             with torch.no_grad():
-                for bx, by in lstm_val_loader:
+                for bx, by in gru_val_loader:
                     bx, by = bx.to(self.device), by.to(self.device)
-                    v_loss += mse_loss(self.lstm_pred(bx).squeeze(-1), by).item() * len(bx)
+                    v_loss += mse_loss(self.gru_pred(bx).squeeze(-1), by).item() * len(bx)
             v_loss /= max(len(X_val), 1)
             val_metrics[epoch] = v_loss
 
-            log.info(f"  LSTM Predictor Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
-            if es_lstm.step(v_loss):
-                log.info(f"  ⛔ LSTM-Predictor early stop at epoch {epoch}")
+            log.info(f"  GRU Predictor Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_gru.step(v_loss):
+                log.info(f"  ⛔ GRU-Predictor early stop at epoch {epoch}")
                 break
         for ep in train_metrics:
             mlflow.log_metric("train_loss", train_metrics[ep], step=ep)
             mlflow.log_metric("val_loss", val_metrics[ep], step=ep)
         mlflow.log_metric("final_train_loss", epoch_loss)
         mlflow.log_metric("final_val_loss", v_loss)
-        if es_lstm.stopped:
+        if es_gru.stopped:
             mlflow.log_metric("early_stop_epoch", epoch)
         mlflow.end_run()
 
-        # Checkpoint LSTM-Predictor
-        torch.save(self.lstm_pred.state_dict(), MODEL_DIR / "lstm_predictor.pt")
-        log.info("  ✓ LSTM-Predictor checkpointed")
+        # Checkpoint GRU-Predictor
+        torch.save(self.gru_pred.state_dict(), MODEL_DIR / "gru_predictor.pt")
+        log.info("  ✓ GRU-Predictor checkpointed")
 
         # Save scaler + upload all artifacts to MLflow
         joblib.dump(self.scaler, SCALER_PATH)
         
-        mlflow.log_artifact(str(MODEL_DIR / "lstm_ae.pt"), artifact_path="models")
+        mlflow.log_artifact(str(MODEL_DIR / "gru_ae.pt"), artifact_path="models")
         mlflow.log_artifact(str(MODEL_DIR / "tcnn.pt"), artifact_path="models")
-        mlflow.log_artifact(str(MODEL_DIR / "lstm_predictor.pt"), artifact_path="models")
+        mlflow.log_artifact(str(MODEL_DIR / "gru_predictor.pt"), artifact_path="models")
         mlflow.log_artifact(str(SCALER_PATH), artifact_path="scalers")
 
         log.info("  DL Models saved [OK]")
@@ -657,10 +712,10 @@ class BatchTrainer:
         log.info(f"  {len(df):,} incidents loaded | {df['root_cause'].nunique()} unique causes")
         return df
 
-    # ── Train RF classifier ───────────────────────────────────────────────────
+    # ── Train RCA classifiers (XGBoost + RF) ──────────────────────────────────
     def _train_classifier(self, df: pd.DataFrame):
-        log.info("Training RandomForest RCA classifier ...")
-        mlflow.start_run(run_name="RCA_RandomForest", nested=True)
+        log.info("Training XGBoost RCA classifier ...")
+        mlflow.start_run(run_name="RCA_XGBoost", nested=True)
         
         X = self.rca_scaler.fit_transform(df[KPI_FEATURES_RCA].values)
         y = self.le.fit_transform(df["root_cause"].values)
@@ -669,65 +724,37 @@ class BatchTrainer:
         X_tr, X_val = X[:split], X[split:]
         y_tr, y_val = y[:split], y[split:]
 
-        log.info(f"  Fitting RF on {len(X_tr):,} samples, validating on {len(X_val):,} ...")
-        self.rf.fit(X_tr, y_tr)
-        y_pred = self.rf.predict(X_val)
+        log.info(f"  Fitting XGBoost on {len(X_tr):,} samples ...")
+        self.xgb.fit(X_tr, y_tr, eval_set=[(X_val, y_val)], verbose=False)
+        y_pred_xgb = self.xgb.predict(X_val)
 
-        report_dict = classification_report(
-            y_val, y_pred,
-            target_names=self.le.classes_,
-            zero_division=0,
-            output_dict=True
-        )
-        report_str = classification_report(
-            y_val, y_pred,
-            target_names=self.le.classes_,
-            zero_division=0,
-        )
-        log.info("RF classifier evaluation:\n" + report_str)
+        report_xgb = classification_report(y_val, y_pred_xgb, target_names=self.le.classes_, zero_division=0, output_dict=True)
+        log.info(f"  XGBoost Accuracy: {report_xgb['accuracy']:.4f}")
 
-        mlflow.log_metric("accuracy", report_dict["accuracy"])
-        mlflow.log_metric("macro_f1", report_dict["macro avg"]["f1-score"])
+        mlflow.log_metric("accuracy", report_xgb["accuracy"])
         mlflow.log_param("n_estimators", 300)
-        mlflow.log_param("max_depth", 20)
+        mlflow.log_param("max_depth", 6)
+        mlflow.end_run()
 
-        # Feature importance summary
-        importances = sorted(
-            zip(KPI_FEATURES_RCA, self.rf.feature_importances_),
-            key=lambda x: x[1], reverse=True,
-        )
-        log.info("Top-5 most important KPIs for RCA:")
-        for feat, imp in importances[:5]:
-            log.info(f"  {feat:<30s} {imp:.4f}")
-            mlflow.log_metric(f"importance_{feat}", round(imp, 4))
-
-        # ── SHAP Explainability (lightweight) ─────────────────────────────────
-        log.info("  Computing SHAP explainer (lightweight) ...")
-        shap_sample = X_tr[:min(100, len(X_tr))]  # small sample for speed
-        explainer = shap.TreeExplainer(self.rf)
-        # Pre-compute on sample to validate and warm the explainer
-        _ = explainer.shap_values(shap_sample[:5], check_additivity=False)
+        # ── SHAP Explainability (on XGBoost) ──────────────────────────────────
+        log.info("  Computing SHAP explainer for XGBoost ...")
+        shap_sample = X_tr[:min(100, len(X_tr))]
+        explainer = shap.TreeExplainer(self.xgb)
+        # Pre-compute
+        _ = explainer.shap_values(shap_sample[:5])
         joblib.dump(explainer, MODEL_DIR / "shap_explainer.joblib")
-        log.info("  SHAP explainer saved [OK]")
 
         # ── Persist models ────────────────────────────────────────────────────
-        log.info("  Saving models to disk ...")
-        joblib.dump(self.rf,     RF_PATH)
+        log.info("  Saving RCA models to disk ...")
+        joblib.dump(self.xgb,        XGB_PATH)
         joblib.dump(self.rca_scaler, RCA_SCALER_PATH)
-        joblib.dump(self.le,     LABEL_ENC_PATH)
+        joblib.dump(self.le,         LABEL_ENC_PATH)
         joblib.dump(KPI_FEATURES_RCA, MODEL_DIR / "rca_kpi_features.joblib")
-        log.info(f"  Classifier saved -> {RF_PATH}")
-
-        log.info("  Uploading artifacts to MLflow ...")
-        mlflow.sklearn.log_model(
-            self.rf, name="rf_model",
-            registered_model_name="QoSBuddy_RCA_RandomForest",
-        )
+        
+        log.info("  Uploading RCA artifacts to MLflow ...")
         mlflow.log_artifact(str(RCA_SCALER_PATH), artifact_path="scalers")
         mlflow.log_artifact(str(LABEL_ENC_PATH), artifact_path="encoders")
-        mlflow.log_artifact(str(MODEL_DIR / "shap_explainer.joblib"), artifact_path="explainability")
-        log.info("  MLflow artifacts uploaded [OK]")
-        mlflow.end_run()
+        # Skipping large model artifacts (XGB, RF, SHAP) to prevent Windows Defender hangs
 
     # ── Build k-NN similarity index ───────────────────────────────────────────
     def _build_knn_index(self, df: pd.DataFrame):
@@ -777,6 +804,24 @@ class BatchTrainer:
             log.info("-" * 60)
             df_kpi = self._load_kpi_data()
             self._train_dl_models(df_kpi)
+
+            # Phase A2: SARIMA statistical forecasters
+            log.info("-" * 60)
+            log.info("Phase A2: SARIMA Statistical Forecasters")
+            log.info("-" * 60)
+            mlflow.start_run(run_name="SARIMA-Forecaster", nested=True)
+            sarima = SARIMAForecaster()
+            sarima.fit(df_kpi, self.scaler, KPI_FEATURES_ANOMALY)
+            log.info(f"  Saving {len(sarima.models)} SARIMA models to disk (may take a moment) ...")
+            sarima.save(SARIMA_PATH)
+            log.info("  ✓ SARIMA models saved locally.")
+
+            log.info("  Uploading SARIMA parameters to MLflow ...")
+            mlflow.log_param("arima_order", str(SARIMAForecaster.ORDER))
+            mlflow.log_metric("cells_fitted", len(sarima.models))
+            mlflow.end_run()
+            log.info("  ✓ SARIMA Phase Complete.")
+            sys.stdout.flush()
     
             # Phase B: RCA models
             log.info("-" * 60)
@@ -801,27 +846,22 @@ class RCAEngine:
     def __init__(self):
         global KPI_FEATURES_RCA
         log.info("Loading RCA models ...")
-        required = [RF_PATH, RCA_SCALER_PATH, LABEL_ENC_PATH, KNN_PATH, INCIDENT_DB_PATH]
+        required = [XGB_PATH, RCA_SCALER_PATH, LABEL_ENC_PATH, KNN_PATH, INCIDENT_DB_PATH]
         if not all(p.exists() for p in required):
-            raise FileNotFoundError("RCA models not found. Run with --mode train first.")
+            raise FileNotFoundError("RCA models (XGBoost) not found. Run with --mode train first.")
 
-        self.rf           = joblib.load(RF_PATH)
+        self.xgb          = joblib.load(XGB_PATH)
         self.rca_scaler   = joblib.load(RCA_SCALER_PATH)
         self.le           = joblib.load(LABEL_ENC_PATH)
         self.knn          = joblib.load(KNN_PATH)
         self.incident_db  = joblib.load(INCIDENT_DB_PATH)
 
-        # Override n_jobs for inference: the models were trained with n_jobs=-1
-        # (all cores) which is great for batch fitting, but for single-sample
-        # predict_proba() calls it spawns a process pool PER CALL — catastrophic.
-        self.rf.n_jobs  = 1
+        # Optimization for inference
         self.knn.n_jobs = 1
 
-        # SHAP explainer (optional — degrades gracefully)
+        # SHAP explainer
         shap_path = MODEL_DIR / "shap_explainer.joblib"
         self.shap_explainer = joblib.load(shap_path) if shap_path.exists() else None
-        if self.shap_explainer:
-            log.info("  SHAP explainer loaded [OK]")
 
         # Restore the exact feature list used during training
         feat_path = MODEL_DIR / "rca_kpi_features.joblib"
@@ -843,7 +883,7 @@ class RCAEngine:
 
     def _classify(self, x_raw: np.ndarray) -> tuple[list[dict], list[dict]]:
         x_scaled = self.rca_scaler.transform(x_raw.reshape(1, -1))
-        proba    = self.rf.predict_proba(x_scaled)[0]
+        proba    = self.xgb.predict_proba(x_scaled)[0]
         classes  = self.le.classes_
 
         ranked = sorted(
@@ -938,7 +978,7 @@ class RCAEngine:
                 "reason": "No KPI data in event",
             }
 
-        # 1 — RF ranked causes + SHAP explainability
+        # 1 — XGBoost ranked causes + SHAP explainability
         ranked_causes, kpi_contributions = self._classify(x_raw)
         top_cause     = ranked_causes[0]["cause"]
         top_prob      = ranked_causes[0]["probability"]
@@ -1002,12 +1042,12 @@ class StreamInferencer:
     Replays time_series_kpi.csv row-by-row (simulating real-time feed).
     For each row:
       1. Rule engine fires
-      2. LSTM-AE computes reconstruction error
+      2. GRU-AE computes reconstruction error
       3. Temporal CNN classifies anomaly probability
-      4. LSTM Predictor forecasts future anomaly score
+      4. GRU Predictor forecasts future anomaly score
       5. Neighbour correlation check
       6. Fuse signals → anomaly decision
-      7. If anomaly → inline RCA (RF + SHAP + k-NN)
+      7. If anomaly → inline RCA (XGBoost + SHAP + k-NN)
       8. Emit combined event to rca_feed.jsonl
     """
     def __init__(self, seq_len: int = 16, stream_delay: float = 0.0,
@@ -1033,29 +1073,33 @@ class StreamInferencer:
         self._load_models()
 
     def _load_models(self):
-        log.info("Loading anomaly detection models ...")
-        ae_path = MODEL_DIR / "lstm_ae.pt"
+        log.info("Loading anomaly detection models (GRU-AE, TCNN, GRU-Pred) ...")
+        ae_path = MODEL_DIR / "gru_ae.pt"
         tcnn_path = MODEL_DIR / "tcnn.pt"
-        lstm_path = MODEL_DIR / "lstm_predictor.pt"
+        pred_path = MODEL_DIR / "gru_predictor.pt"
         
-        if not SCALER_PATH.exists() or not ae_path.exists() or not tcnn_path.exists() or not lstm_path.exists():
+        if not SCALER_PATH.exists() or not ae_path.exists() or not tcnn_path.exists() or not pred_path.exists():
             raise FileNotFoundError("Anomaly models not found. Run with --mode train first.")
 
         self.scaler = joblib.load(SCALER_PATH)
 
-        self.lstm_ae = LSTMAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        self.lstm_ae.load_state_dict(torch.load(ae_path, map_location=self.device))
-        self.lstm_ae.eval()
+        self.gru_ae = GRUAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        self.gru_ae.load_state_dict(torch.load(ae_path, map_location=self.device))
+        self.gru_ae.eval()
 
         self.tcnn = TemporalCNN(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
         self.tcnn.load_state_dict(torch.load(tcnn_path, map_location=self.device))
         self.tcnn.eval()
 
-        self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        self.lstm_pred.load_state_dict(torch.load(lstm_path, map_location=self.device))
-        self.lstm_pred.eval()
+        self.gru_pred = GRUPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        self.gru_pred.load_state_dict(torch.load(pred_path, map_location=self.device))
+        self.gru_pred.eval()
 
         log.info("  DL Anomaly models loaded [OK]")
+
+        # Load SARIMA forecasters
+        self.sarima = SARIMAForecaster()
+        self.sarima.load(SARIMA_PATH)
 
         # Load RCA engine
         self.rca_engine = RCAEngine()
@@ -1114,19 +1158,23 @@ class StreamInferencer:
         return None
 
     def _fuse_signals(self, rule: dict, ae_score: float | None,
-                      tcnn_score: float | None, lstm_pred_score: float | None, 
+                      tcnn_score: float | None, pred_score: float | None,
+                      sarima_score: float | None = None,
                       neighbour_escalate: bool = False) -> dict:
         votes = 0
         if rule["rule_triggered"]: votes += 1
         if ae_score is not None and ae_score > 5.0: votes += 1
         if tcnn_score is not None and tcnn_score > 5.0: votes += 1
-        if lstm_pred_score is not None and lstm_pred_score > 5.0: votes += 1
+        if pred_score is not None and pred_score > 5.0: votes += 1
+        if sarima_score is not None and sarima_score > 5.0: votes += 1
 
+        # Weighted combination (5 signals now)
         combined_score = round(
-            (rule["rule_score"] * 0.35) +
-            ((ae_score or 0)    * 0.20) +
-            ((tcnn_score or 0)  * 0.30) +
-            ((lstm_pred_score or 0) * 0.15), 3
+            (rule["rule_score"]       * 0.30) +
+            ((ae_score or 0)         * 0.18) +
+            ((tcnn_score or 0)       * 0.25) +
+            ((pred_score or 0)       * 0.12) +
+            ((sarima_score or 0)     * 0.15), 3
         )
 
         if votes == 0:
@@ -1135,9 +1183,9 @@ class StreamInferencer:
             final_label = "low"
         elif votes == 2:
             final_label = "medium"
-        elif votes == 3:
+        elif votes <= 4:
             final_label = "high"
-        else: # votes >= 4
+        else:  # votes == 5
             final_label = "critical"
 
         # Escalation bonus
@@ -1217,41 +1265,46 @@ class StreamInferencer:
                 # ── Batched DL Inference ──
                 ae_scores = [None] * len(records)
                 tcnn_scores = [None] * len(records)
-                lstm_scores = [None] * len(records)
+                pred_scores = [None] * len(records)
                 
                 if valid_sequences:
                     batch_tensor = torch.tensor(np.array(valid_sequences), dtype=torch.float32).to(self.device)
                     with torch.no_grad():
-                        ae_batch = self.lstm_ae.anomaly_score(batch_tensor) * 10.0
+                        ae_batch = self.gru_ae.anomaly_score(batch_tensor) * 10.0
                         tcnn_batch = self.tcnn(batch_tensor).squeeze(-1).cpu().numpy() * 10.0
-                        lstm_batch = self.lstm_pred(batch_tensor).squeeze(-1).cpu().numpy() * 10.0
+                        pred_batch = self.gru_pred(batch_tensor).squeeze(-1).cpu().numpy() * 10.0
                         
                     for j, original_idx in enumerate(valid_indices):
                         ae_scores[original_idx] = round(float(ae_batch[j]), 3)
                         tcnn_scores[original_idx] = round(float(tcnn_batch[j]), 3)
-                        lstm_scores[original_idx] = round(float(lstm_batch[j]), 3)
+                        pred_scores[original_idx] = round(float(pred_batch[j]), 3)
 
                 # ── Fusion & Emission Spooling ──
-                json_buffer = []
 
                 for i, row in enumerate(records):
                     rule_result = rule_engine(row)
                     ae_score = ae_scores[i]
                     tcnn_score = tcnn_scores[i]
-                    lstm_score = lstm_scores[i]
+                    pred_score = pred_scores[i]
+
+                    # SARIMA forecast-based anomaly score
+                    cell_id = str(row["cell_id"])
+                    sarima_score = self.sarima.score(cell_id, X_chunk[i])
 
                     pre_anomaly = (
                         rule_result["rule_triggered"] or 
                         (ae_score is not None and ae_score > 5.0) or
                         (tcnn_score is not None and tcnn_score > 5.0) or
-                        (lstm_score is not None and lstm_score > 5.0)
+                        (pred_score is not None and pred_score > 5.0) or
+                        (sarima_score is not None and sarima_score > 5.0)
                     )
                     neighbour_escalate = self._neighbour_vote(
-                        str(row["cell_id"]), str(row["timestamp"]), pre_anomaly
+                        cell_id, str(row["timestamp"]), pre_anomaly
                     )
 
                     fusion = self._fuse_signals(
-                        rule_result, ae_score, tcnn_score, lstm_score, neighbour_escalate
+                        rule_result, ae_score, tcnn_score, pred_score,
+                        sarima_score, neighbour_escalate
                     )
 
                     if fusion["is_anomaly"]:
@@ -1292,9 +1345,10 @@ class StreamInferencer:
                             "kpi_snapshot":      kpi_snapshot,
                             "rule_engine":       rule_result,
                             "dl_anomaly_models": {
-                                "lstm_ae_score_0_10": ae_score,
+                                "gru_ae_score_0_10": ae_score,
                                 "tcnn_prob_0_10":     tcnn_score,
-                                "lstm_pred_0_10":     lstm_score,
+                                "gru_pred_0_10":     pred_score,
+                                "sarima_score_0_10":  sarima_score,
                                 "ready":              ae_score is not None,
                             },
                             "fusion":            fusion,
@@ -1303,23 +1357,20 @@ class StreamInferencer:
                             "ground_truth_label": str(row.get("label", "unknown") or "unknown"),
                         }
 
-                        # Buffer event into memory, rather than blocking on disk I/O
-                        json_buffer.append(json.dumps(event, default=str) + "\n")
+                        # Instantly write to disk so dashboard updates without batch delays
+                        feed_file.write(json.dumps(event, default=str) + "\n")
+                        feed_file.flush()
                         self._emit_console(event)
                         self.stats["rca_diagnosed"] += 1
                         # Track cause for summary
                         pc = rca_diagnosis.get("primary_cause", "unknown")
                         self._cause_counts[pc] = self._cause_counts.get(pc, 0) + 1
 
-                if json_buffer:
-                    feed_file.writelines(json_buffer)
-                    feed_file.flush()
+                if self.stream_delay > 0:
+                    time.sleep(self.stream_delay)
 
-                    if self.stream_delay > 0:
-                        time.sleep(self.stream_delay)
-
-                # Periodic progress logging every 10K rows
-                if self.stats["processed"] - self._last_progress >= 10_000:
+                # Periodic progress logging every 5K rows
+                if self.stats["processed"] - self._last_progress >= 5_000:
                     self._last_progress = self.stats["processed"]
                     elapsed = time.time() - t_start
                     rate = self.stats["processed"] / max(elapsed, 0.1)
@@ -1377,8 +1428,8 @@ def parse_args():
                    help="Seconds to wait between streamed rows (default 0 = max speed)")
     p.add_argument("--cell",        type=str,   default=None,
                    help="Filter stream to a specific cell_id (optional)")
-    p.add_argument("--chunk-size",  type=int,   default=500,
-                   help="CSV chunk size for streaming (default 500)")
+    p.add_argument("--chunk-size",  type=int,   default=10,
+                   help="CSV chunk size for streaming (default 10)")
     return p.parse_args()
 
 

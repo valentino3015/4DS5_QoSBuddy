@@ -119,6 +119,11 @@ class RemediationEngine:
         cache_key = f"{cause}::{severity}::{vendor}::{band}"
         llm_data = None
         
+        # Check if we should try reconnecting to the LLM API
+        if not getattr(self, "_llm_available", True) and time.time() > getattr(self, "_llm_next_retry", 0):
+            log.info("Cooldown passed. Attempting to reconnect to Mistral AI API...")
+            self._llm_available = True
+
         if cache_key in self.cache:
             log.info(f"LLM Cache Hit for [{cache_key}] - Skipping Mistral AI API.")
             cached = deepcopy(self.cache[cache_key])
@@ -136,6 +141,9 @@ class RemediationEngine:
                 llm_data["incident_info"]["site"] = site_id
                 llm_data["incident_info"]["region"] = region
                 llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
+        elif not getattr(self, "_llm_available", True):
+            # If we already determined the LLM is down, skip to fallback instantly
+            pass
         else:
             url = f"http://127.0.0.1:{LLM_PORT}/predict"
             safe_event = clean_nan(rca_event)
@@ -163,10 +171,16 @@ class RemediationEngine:
                             log.warning("LLM API returned raw_response instead of structured JSON.")
                     else:
                         log.warning(f"LLM API returned HTTP {response.status_code} (attempt {attempt}/{max_retries})")
+                except requests.exceptions.ConnectionError as e:
+                    log.warning("LLM API is unreachable. Disabling queries for 60s to prevent freezing.")
+                    self._llm_available = False
+                    self._llm_next_retry = time.time() + 60
+                    break
                 except requests.exceptions.RequestException as e:
-                    log.warning(f"LLM API unreachable ({e}) — attempt {attempt}/{max_retries}")
-                # Exponential backoff before retry
-                if attempt < max_retries:
+                    log.warning(f"LLM API request failed ({e}) — attempt {attempt}/{max_retries}")
+                
+                # Exponential backoff before retry (if not disabled)
+                if getattr(self, "_llm_available", True) and attempt < max_retries:
                     backoff = 3 ** attempt  # 3s, 9s
                     log.info(f"  Retrying in {backoff}s ...")
                     time.sleep(backoff)
@@ -299,13 +313,17 @@ class DashboardState:
 
     def snapshot(self):
         with self._lock:
+            # Return only the last 2000 events to prevent browser memory crashes
+            # 18,000+ events in a single WebSocket message will stall most browsers.
+            recent_events = list(self.events)[-2000:]
             return {
                 "type":        "snapshot",
                 "stats":       dict(self.stats),
                 "cell_status": dict(self.cell_status),
                 "kpi_history": {c: list(h) for c, h in self.kpi_history.items()},
-                "events":      list(self.events),  # all events — no cap
+                "events":      recent_events, 
                 "topology":    self.topology,
+                "full_history_count": len(self.events)
             }
 
 
@@ -456,7 +474,11 @@ class FeedReader:
         fh.flush()
 
         STATE.push(out)
-        broadcast_event(out)
+        
+        # Only broadcast to live dashboards during the LIVE phase.
+        # Broadcasting 18,000 events during catch-up will overflow WebSocket buffers.
+        if phase == "live":
+            broadcast_event(out)
 
         sev   = out["anomaly_severity"].upper()
         cause = remediation.get("cause", "")
@@ -495,6 +517,14 @@ class FeedReader:
                     if line:
                         self._process(line, "live")
                     else:
+                        # Detect if the DetectionAgent truncated the file
+                        try:
+                            if tail_fh.tell() > RCA_FEED.stat().st_size:
+                                log.warning("Feed truncated! Resetting tail to beginning.")
+                                tail_fh.seek(0)
+                                continue
+                        except Exception:
+                            pass
                         time.sleep(tail_interval)
         except KeyboardInterrupt:
             log.info("Feed reader stopped.")
@@ -507,7 +537,7 @@ def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
     p.add_argument("--http-port",     type=int,   default=8080)
-    p.add_argument("--tail-interval", type=float, default=1.0)
+    p.add_argument("--tail-interval", type=float, default=0.6) 
     p.add_argument("--no-browser",    action="store_true")
     return p.parse_args()
 
