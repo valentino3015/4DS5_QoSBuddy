@@ -16,7 +16,7 @@ import sys
 import glob
 import argparse
 
-from qosbuddy_labeler import (
+from other.data_treatement.qosbuddy_labeler import (
     load_dataset, check_required_columns, clean_data,
     apply_labels, COLUMN_MAP
 )

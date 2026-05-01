@@ -14,9 +14,9 @@ import logging
 warnings.filterwarnings('ignore')
 logging.basicConfig(level=logging.WARNING)
 
-from stream_window import QoSStream, SlidingWindow
-from feature_eng import QoSFeatureEngineer
-from LSTMAECNNTRAN import MultiModalScorer, LABEL_COLS
+from other.anomaly_detection.stream_window import QoSStream, SlidingWindow
+from other.anomaly_detection.feature_eng import QoSFeatureEngineer
+from other.anomaly_detection.LSTMAECNNTRAN import MultiModalScorer, LABEL_COLS
 
 # ─────────────────────────────────────────────────────────────
 # CONFIG
