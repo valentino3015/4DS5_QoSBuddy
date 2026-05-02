@@ -1,6 +1,6 @@
 2026-04-18 00:31:20,315 [INFO] RemediationAgent -   Topology loaded: 150 cells
 2026-04-18 00:31:20,319 [INFO] RemediationAgent - QoSBuddy RemediationAgent (Agent 3) starting
-2026-04-18 00:31:20,319 [INFO] RemediationAgent -   ws-port=8765 | http-port=8080
+2026-04-18 00:31:20,319 [INFO] RemediationAgent -   ws-port=8765 | http-port=8085
 2026-04-18 00:31:20,321 [INFO] RemediationAgent - Dashboard ready -> C:\Users\maria\Desktop\esprit\pds\4DS5_QoSBuddy\dashboard\index.html
 2026-04-18 00:31:20,322 [INFO] RemediationAgent - Waiting for WebSocket server ...
 2026-04-18 00:31:20,325 [INFO] RemediationAgent - WebSocket server on ws://localhost:8765
@@ -8,7 +8,7 @@
 2026-04-18 00:31:20,345 [INFO] websockets.server - server listening on [::1]:8765
 2026-04-18 00:31:20,346 [INFO] RemediationAgent - WebSocket server ready [OK]
 2026-04-18 00:31:20,673 [INFO] RemediationAgent - ============================================================
-2026-04-18 00:31:20,674 [INFO] RemediationAgent -   Dashboard : http://localhost:8080
+2026-04-18 00:31:20,674 [INFO] RemediationAgent -   Dashboard : http://localhost:8085
 2026-04-18 00:31:20,674 [INFO] RemediationAgent -   WebSocket : ws://localhost:8765
 2026-04-18 00:31:20,674 [INFO] RemediationAgent -   LLM       : gemini (model=gemini-2.0-flash)
 2026-04-18 00:31:20,675 [INFO] RemediationAgent - ============================================================

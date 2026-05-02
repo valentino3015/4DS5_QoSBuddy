@@ -1431,6 +1431,10 @@ def parse_args():
                    help="Filter stream to a specific cell_id (optional)")
     p.add_argument("--chunk-size",  type=int,   default=10,
                    help="CSV chunk size for streaming (default 10)")
+    p.add_argument("--kpi-csv",     type=str,   default=None,
+                   help="Path to time_series_kpi.csv (optional)")
+    p.add_argument("--incidents-csv", type=str, default=None,
+                   help="Path to incidents_enriched.csv (optional)")
     return p.parse_args()
 
 
