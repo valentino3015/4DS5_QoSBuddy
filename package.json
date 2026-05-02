@@ -1,5 +1,7 @@
 {
   "dependencies": {
+    "@types/csv-parse": "^1.2.5",
+    "csv-parse": "^6.2.1",
     "jspdf": "^4.2.1"
   }
 }

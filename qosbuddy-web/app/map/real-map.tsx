@@ -5,19 +5,18 @@ import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-le
 import { Icon, LatLngTuple } from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import {
-  MapPin,
   Radio,
-  Filter,
   Search,
   AlertTriangle,
   Zap,
-  Activity,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { useWebSocket, RCAEvent } from '@/lib/websocket'
 import { cn } from '@/lib/utils'
+import { CellTopology } from '@/app/api/cells/route'
 
 // Fix Leaflet default icon issue in Next.js
 const defaultIcon = new Icon({
@@ -38,72 +37,8 @@ const statusColors = {
   offline: '#64748b'
 }
 
-// Tunis region cell coordinates - 44 cells across 15 gNB sites
-const cellLocations: Record<string, LatLngTuple> = {
-  // gNB_001 - Tunis Center
-  'gNB_001_C1': [36.8065, 10.1815],
-  'gNB_001_C2': [36.8165, 10.1915],
-  'gNB_001_C3': [36.7965, 10.1715],
-  // gNB_002 - La Marsa
-  'gNB_002_C1': [36.8765, 10.3215],
-  'gNB_002_C2': [36.8865, 10.3315],
-  'gNB_002_C3': [36.8665, 10.3115],
-  // gNB_003 - Carthage
-  'gNB_003_C1': [36.8565, 10.2515],
-  'gNB_003_C2': [36.8665, 10.2615],
-  'gNB_003_C3': [36.8465, 10.2415],
-  // gNB_004 - Ariana
-  'gNB_004_C1': [36.8465, 10.2215],
-  'gNB_004_C2': [36.8565, 10.2315],
-  'gNB_004_C3': [36.8365, 10.2115],
-  // gNB_005 - Sidi Bou Said
-  'gNB_005_C1': [36.7565, 10.1315],
-  'gNB_005_C2': [36.7465, 10.1215],
-  'gNB_005_C3': [36.7665, 10.1415],
-  // gNB_006 - La Goulette
-  'gNB_006_C1': [36.8165, 10.3015],
-  'gNB_006_C2': [36.8265, 10.3115],
-  'gNB_006_C3': [36.8065, 10.2915],
-  // gNB_007 - Le Kram
-  'gNB_007_C1': [36.8365, 10.2815],
-  'gNB_007_C2': [36.8465, 10.2915],
-  'gNB_007_C3': [36.8265, 10.2715],
-  // gNB_008 - Manouba
-  'gNB_008_C1': [36.7765, 10.0815],
-  'gNB_008_C2': [36.7665, 10.0715],
-  'gNB_008_C3': [36.7865, 10.0915],
-  // gNB_009 - Ben Arous
-  'gNB_009_C1': [36.7465, 10.2115],
-  'gNB_009_C2': [36.7365, 10.2015],
-  'gNB_009_C3': [36.7565, 10.2215],
-  // gNB_010 - Megrine
-  'gNB_010_C1': [36.7265, 10.2315],
-  'gNB_010_C2': [36.7165, 10.2215],
-  'gNB_010_C3': [36.7365, 10.2415],
-  // gNB_011 - Radès
-  'gNB_011_C1': [36.7065, 10.2715],
-  'gNB_011_C2': [36.6965, 10.2615],
-  'gNB_011_C3': [36.7165, 10.2815],
-  // gNB_012 - Ezzahra
-  'gNB_012_C1': [36.6865, 10.2515],
-  'gNB_012_C2': [36.6765, 10.2415],
-  'gNB_012_C3': [36.6965, 10.2615],
-  // gNB_013 - Hammam Lif
-  'gNB_013_C1': [36.7265, 10.3315],
-  'gNB_013_C2': [36.7165, 10.3215],
-  'gNB_013_C3': [36.7365, 10.3415],
-  // gNB_014 - Sidi Thabet
-  'gNB_014_C1': [36.9065, 10.0615],
-  'gNB_014_C2': [36.8965, 10.0515],
-  'gNB_014_C3': [36.9165, 10.0715],
-  // gNB_015 - Sidi Hassine
-  'gNB_015_C1': [36.7365, 10.0415],
-  'gNB_015_C2': [36.7265, 10.0315],
-  'gNB_015_C3': [36.7465, 10.0515],
-}
-
 // Component to fit bounds when cells change
-function MapBounds({ cells }: { cells: string[] }) {
+function MapBounds({ cells, cellLocations }: { cells: string[], cellLocations: Record<string, LatLngTuple> }) {
   const map = useMap()
   
   useEffect(() => {
@@ -116,7 +51,7 @@ function MapBounds({ cells }: { cells: string[] }) {
         map.fitBounds(positions, { padding: [50, 50] })
       }
     }
-  }, [map, cells])
+  }, [map, cells, cellLocations])
   
   return null
 }
@@ -126,8 +61,36 @@ export default function MapPage() {
   const [selectedCell, setSelectedCell] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [cellLocations, setCellLocations] = useState<Record<string, LatLngTuple>>({})
+  const [cellTopology, setCellTopology] = useState<Map<string, CellTopology>>(new Map())
+  const [loading, setLoading] = useState(true)
   
-  // Get unique cells from events
+  // Fetch cell topology from API
+  useEffect(() => {
+    const fetchCellTopology = async () => {
+      try {
+        const response = await fetch('/api/cells')
+        const data = await response.json()
+        if (data.cells) {
+          const locations: Record<string, LatLngTuple> = {}
+          const topology = new Map<string, CellTopology>()
+          data.cells.forEach((cell: CellTopology) => {
+            locations[cell.cell_id] = [cell.latitude, cell.longitude]
+            topology.set(cell.cell_id, cell)
+          })
+          setCellLocations(locations)
+          setCellTopology(topology)
+        }
+      } catch (error) {
+        console.error('Failed to fetch cell topology:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchCellTopology()
+  }, [])
+  
+  // Get unique cells from events and merge with topology
   const cells = useMemo(() => {
     const uniqueCells = new Map<string, RCAEvent & { status: string }>()
     
@@ -146,8 +109,8 @@ export default function MapPage() {
       }
     })
     
-    // Add mock cells that haven't reported yet
-    Object.keys(cellLocations).forEach(cellId => {
+    // Add all cells from topology that haven't reported yet
+    cellTopology.forEach((topology, cellId) => {
       if (!uniqueCells.has(cellId)) {
         uniqueCells.set(cellId, {
           rca_event_id: '',
@@ -157,10 +120,10 @@ export default function MapPage() {
           source_event_id: '',
           timestamp: '',
           cell_id: cellId,
-          region: 'Tunis',
-          vendor: 'Nokia',
-          nr_band: 'n78',
-          network_slice: 'eMBB',
+          region: topology.region,
+          vendor: topology.vendor,
+          nr_band: topology.nr_band,
+          network_slice: topology.network_slice,
           anomaly_severity: 'low',
           anomaly_score: 0,
           kpi_snapshot: {},
@@ -173,7 +136,7 @@ export default function MapPage() {
     })
     
     return Array.from(uniqueCells.values())
-  }, [events])
+  }, [events, cellTopology])
   
   // Filter cells
   const filteredCells = useMemo(() => {
@@ -192,8 +155,8 @@ export default function MapPage() {
     critical: cells.filter(c => c.status === 'critical').length
   }), [cells])
   
-  // Default center (Tunis)
-  const defaultCenter: LatLngTuple = [36.8065, 10.1815]
+  // Default center (Sfax, Tunisia - based on actual cell topology)
+  const defaultCenter: LatLngTuple = [35.44, 10.59]
   
   return (
     <div className="flex h-screen bg-navy-900">
@@ -206,8 +169,17 @@ export default function MapPage() {
           'px-4 py-1 text-xs font-medium flex items-center gap-2',
           isConnected ? 'bg-emerald-500/10 text-emerald-400' : 'bg-rose-500/10 text-rose-400'
         )}>
-          <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500')} />
-          {isConnected ? 'Live' : 'Offline'} • {stats.total} cells monitored
+          {loading ? (
+            <>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Loading cell topology...
+            </>
+          ) : (
+            <>
+              <div className={cn('w-2 h-2 rounded-full', isConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500')} />
+              {isConnected ? 'Live' : 'Offline'} • {stats.total} cells monitored
+            </>
+          )}
         </div>
 
         <div className="flex-1 flex overflow-hidden">
@@ -307,7 +279,7 @@ export default function MapPage() {
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
               
-              <MapBounds cells={filteredCells.map(c => c.cell_id)} />
+              <MapBounds cells={filteredCells.map(c => c.cell_id)} cellLocations={cellLocations} />
               
               {filteredCells.map((cell) => {
                 const position = cellLocations[cell.cell_id]
