@@ -103,6 +103,14 @@ export async function initDatabase(): Promise<void> {
       )
     `)
 
+    // Migration: Add password column if missing (for existing tables)
+    try {
+      await connection.execute(`ALTER TABLE users ADD COLUMN password VARCHAR(255) DEFAULT NULL`)
+    } catch (e: any) {
+      // Ignore if column already exists
+      if (e.code !== 'ER_DUP_FIELDNAME') throw e
+    }
+
     // Create reports table for tracking generated reports
     await connection.execute(`
       CREATE TABLE IF NOT EXISTS reports (

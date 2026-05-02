@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import { getUserByEmail, updateLastLogin } from '@/lib/db'
+import pool, { getUserByEmail, updateLastLogin, initDatabase } from '@/lib/db'
 
 export async function POST(req: NextRequest) {
   try {
+    // Ensure database is initialized
+    await initDatabase()
+    
     const { email, password } = await req.json()
     
     if (!email || !password) {
@@ -13,7 +16,22 @@ export async function POST(req: NextRequest) {
       )
     }
     
-    const user = await getUserByEmail(email)
+    let user = await getUserByEmail(email)
+    
+    // Debug logging for troubleshooting
+    console.log('Login attempt:', { email, userFound: !!user, hasPassword: !!user?.password, passwordValue: user?.password })
+    
+    // Fix: If admin user exists but has no password, reset it
+    if (user && email === 'admin@qosbuddy.com' && !user.password) {
+      console.log('Admin user found with empty password - resetting to default')
+      await pool.execute(
+        "UPDATE users SET password = '$2b$10$YourHashedPasswordHere' WHERE email = ?",
+        [email]
+      )
+      // Re-fetch the user
+      user = await getUserByEmail(email)
+      console.log('Password reset complete:', { hasPassword: !!user?.password })
+    }
     
     if (!user) {
       return NextResponse.json(
@@ -25,10 +43,17 @@ export async function POST(req: NextRequest) {
     // For the default admin with placeholder password, allow any password
     // In production, this should be removed
     let isValid = false
-    if (user.password.includes('YourHashedPasswordHere')) {
+    const userPassword = user.password || ''
+    const isPlaceholder = userPassword.includes('YourHashedPasswordHere')
+    
+    console.log('Password check:', { isPlaceholder, passwordLength: userPassword.length })
+    
+    if (isPlaceholder) {
       isValid = password === 'admin123'
+      console.log('Using placeholder password check:', isValid)
     } else {
-      isValid = await bcrypt.compare(password, user.password)
+      isValid = await bcrypt.compare(password, userPassword)
+      console.log('Using bcrypt compare:', isValid)
     }
     
     if (!isValid) {

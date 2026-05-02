@@ -1,1 +1,9 @@
-{}
+{
+  "app\\map\\page.tsx -> ./real-map": {
+    "id": "app\\map\\page.tsx -> ./real-map",
+    "files": [
+      "static/css/css-node_modules_leaflet_dist_leaflet_css.css",
+      "static/chunks/_app-pages-browser_app_map_real-map_tsx.js"
+    ]
+  }
+}
