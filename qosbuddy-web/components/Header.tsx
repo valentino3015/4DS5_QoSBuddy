@@ -1,10 +1,31 @@
 'use client'
 
-import { Bell, Search, User } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Bell, Search, User, X, AlertTriangle, CheckCircle, Info } from 'lucide-react'
 import { mockUsers } from '@/lib/data'
+import { useWebSocket } from '@/lib/websocket'
+import { useNotifications } from '@/lib/notifications'
+import { cn } from '@/lib/utils'
+import Link from 'next/link'
 
 export default function Header() {
   const user = mockUsers[0]
+  const [showNotifications, setShowNotifications] = useState(false)
+  const { events } = useWebSocket('ws://localhost:8765')
+  const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead } = useNotifications()
+
+  // Add notifications for critical/high events
+  useEffect(() => {
+    const latestEvent = events[0]
+    if (latestEvent && ['critical', 'high'].includes(latestEvent.anomaly_severity)) {
+      addNotification({
+        title: `Critical Alert: ${latestEvent.cell_id}`,
+        message: latestEvent.rca?.primary_cause || 'Anomaly detected',
+        type: 'error',
+        link: `/incidents?id=${latestEvent.rca_event_id}`
+      })
+    }
+  }, [events, addNotification])
 
   return (
     <header className="h-16 bg-navy-800/80 backdrop-blur-md border-b border-navy-500/30 flex items-center justify-between px-6 sticky top-0 z-40">
@@ -19,12 +40,83 @@ export default function Header() {
       </div>
 
       {/* Right side */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 relative">
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg hover:bg-navy-700 text-navy-400 hover:text-white transition-colors">
-          <Bell className="w-5 h-5" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
-        </button>
+        <div className="relative">
+          <button 
+            onClick={() => setShowNotifications(!showNotifications)}
+            className="relative p-2 rounded-lg hover:bg-navy-700 text-navy-400 hover:text-white transition-colors"
+          >
+            <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+            )}
+          </button>
+
+          {/* Notification Dropdown */}
+          {showNotifications && (
+            <div className="absolute right-0 top-full mt-2 w-96 bg-navy-800 border border-navy-500/30 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-navy-500/30">
+                <h3 className="font-semibold text-white">Notifications</h3>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-xs text-accent-blue hover:text-accent-blue/80"
+                    >
+                      Mark all read
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowNotifications(false)}
+                    className="p-1 hover:bg-navy-700 rounded"
+                  >
+                    <X className="w-4 h-4 text-navy-400" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="max-h-80 overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <p className="px-4 py-8 text-center text-navy-400 text-sm">
+                    No notifications yet
+                  </p>
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      onClick={() => {
+                        markAsRead(notif.id)
+                        if (notif.link) window.location.href = notif.link
+                      }}
+                      className={cn(
+                        'px-4 py-3 border-b border-navy-500/20 cursor-pointer hover:bg-navy-700/50 transition-colors',
+                        !notif.read && 'bg-navy-700/30'
+                      )}
+                    >
+                      <div className="flex items-start gap-3">
+                        {notif.type === 'error' && <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5" />}
+                        {notif.type === 'warning' && <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5" />}
+                        {notif.type === 'success' && <CheckCircle className="w-4 h-4 text-emerald-400 mt-0.5" />}
+                        {notif.type === 'info' && <Info className="w-4 h-4 text-blue-400 mt-0.5" />}
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-white">{notif.title}</p>
+                          <p className="text-xs text-navy-400 mt-0.5">{notif.message}</p>
+                          <p className="text-xs text-navy-500 mt-1">
+                            {notif.timestamp.toLocaleTimeString()}
+                          </p>
+                        </div>
+                        {!notif.read && (
+                          <div className="w-2 h-2 bg-accent-blue rounded-full mt-1" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* User */}
         <div className="flex items-center gap-3 pl-4 border-l border-navy-500/30">
