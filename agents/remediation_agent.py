@@ -118,14 +118,15 @@ class RemediationEngine:
 
         cache_key = f"{cause}::{severity}::{vendor}::{band}"
         llm_data = None
+        cache_hit = cache_key in self.cache
         
         # Check if we should try reconnecting to the LLM API
         if not getattr(self, "_llm_available", True) and time.time() > getattr(self, "_llm_next_retry", 0):
-            log.info("Cooldown passed. Attempting to reconnect to Mistral AI API...")
             self._llm_available = True
 
-        if cache_key in self.cache:
-            log.info(f"LLM Cache Hit for [{cache_key}] - Skipping Mistral AI API.")
+        if cache_hit:
+            # Cache hit - only log at debug level to reduce spam
+            pass
             cached = deepcopy(self.cache[cache_key])
             llm_data = cached["llm_data"]
             # Swap dynamic fields
@@ -337,7 +338,7 @@ WS_READY   = threading.Event()
 async def ws_handler(websocket):
     with WS_LOCK:
         WS_CLIENTS.add(websocket)
-    log.info(f"Dashboard connected ({len(WS_CLIENTS)} total)")
+    log.debug(f"Dashboard connected ({len(WS_CLIENTS)} total)")
     try:
         await websocket.send(json.dumps(clean_nan(STATE.snapshot()), default=str))
         async for _ in websocket:
@@ -347,7 +348,7 @@ async def ws_handler(websocket):
     finally:
         with WS_LOCK:
             WS_CLIENTS.discard(websocket)
-        log.info(f"Dashboard disconnected ({len(WS_CLIENTS)} remaining)")
+        log.debug(f"Dashboard disconnected ({len(WS_CLIENTS)} remaining)")
 
 
 async def _broadcast(msg):
@@ -436,6 +437,14 @@ class FeedReader:
             self._feed_fh = open(REMEDIATION_FEED, "a", encoding="utf-8")
         return self._feed_fh
 
+    def __del__(self):
+        """Ensure file handle is closed on cleanup."""
+        if self._feed_fh is not None:
+            try:
+                self._feed_fh.close()
+            except Exception:
+                pass
+
     def _process(self, line, phase):
         line = line.strip()
         if not line:
@@ -484,30 +493,36 @@ class FeedReader:
         cause = remediation.get("cause", "")
         act   = remediation.get("primary_action", {})
         mode  = "[AUTO]" if act.get("auto") else "[MANUAL]"
-        tag   = "[!!]" if sev in ("HIGH", "CRITICAL") else "[ ~ ]"
-        log.info(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act.get('action', '')} {mode}")
+        
+        # Only log important events (HIGH/CRITICAL) to reduce spam
+        if sev in ("HIGH", "CRITICAL"):
+            tag = "[!!]"
+            log.warning(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause} | {act.get('action', '')} {mode}")
+        elif log.getEffectiveLevel() <= logging.DEBUG:
+            # Only log lower severity in verbose/debug mode
+            tag = "[ ~ ]"
+            log.debug(f"{tag} [{sev:<8s}] {out['cell_id']:<14s} | {cause}")
 
     def run(self, tail_interval):
         REMEDIATION_FEED.write_text("", encoding="utf-8")
         pos = 0
+        self._last_status_time = 0
+        self._last_status_count = 0
 
         if RCA_FEED.exists():
-            log.info("=" * 60)
-            log.info("PHASE 1 - CATCH-UP")
-            log.info("=" * 60)
             with open(RCA_FEED, "r", encoding="utf-8") as f:
                 lines = f.readlines()
                 pos   = f.tell()
-            log.info(f"  Processing {len(lines):,} existing RCA events ...")
+            if lines:
+                log.info(f"Catch-up: processing {len(lines):,} existing events ...")
             for line in lines:
                 self._process(line, "catch-up")
-            log.info(f"  Catch-up done ({self.count:,} events processed)")
+            if self.count > 0:
+                log.info(f"Catch-up complete: {self.count:,} events processed")
         else:
             log.warning(f"rca_feed.jsonl not found at {RCA_FEED} - waiting for Agent 2 ...")
 
-        log.info("=" * 60)
-        log.info("PHASE 2 - LIVE TAIL  (Ctrl+C to stop)")
-        log.info("=" * 60)
+        log.info("Live tail active (Ctrl+C to stop)")
 
         try:
             with open(RCA_FEED, "r", encoding="utf-8") as tail_fh:
@@ -537,15 +552,37 @@ def parse_args():
     p = argparse.ArgumentParser(description="QoSBuddy - RemediationAgent (Agent 3)")
     p.add_argument("--ws-port",       type=int,   default=8765)
     p.add_argument("--http-port",     type=int,   default=8080)
-    p.add_argument("--tail-interval", type=float, default=0.6) 
+    p.add_argument("--tail-interval", type=float, default=0.6)
+    p.add_argument("--llm-port",      type=int,   default=None,
+                   help="LLM service port (auto-detected from LLM/App.py if not specified)")
     p.add_argument("--no-browser",    action="store_true")
+    p.add_argument("--quiet",         action="store_true",
+                   help="Reduce terminal output (logs still written to file)")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
+    
+    # Set quiet mode on logger
+    if args.quiet:
+        log.setLevel(logging.WARNING)
+        # Also suppress verbose library logs
+        logging.getLogger("websockets").setLevel(logging.ERROR)
+        logging.getLogger("asyncio").setLevel(logging.ERROR)
+    
+    # Configure LLM port (CLI arg overrides auto-detection)
+    global LLM_PORT
+    if args.llm_port is not None:
+        LLM_PORT = args.llm_port
+        if not args.quiet:
+            log.info(f"  LLM port from CLI: {LLM_PORT}")
+    else:
+        if not args.quiet:
+            log.info(f"  LLM port auto-detected: {LLM_PORT}")
+    
     log.info("QoSBuddy RemediationAgent (Agent 3) starting")
-    log.info(f"  ws-port={args.ws_port} | http-port={args.http_port}")
+    log.info(f"  ws-port={args.ws_port} | http-port={args.http_port} | llm-port={LLM_PORT} | quiet={args.quiet}")
 
     prepare_dashboard(args.ws_port)
 

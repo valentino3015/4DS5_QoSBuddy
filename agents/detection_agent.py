@@ -740,10 +740,21 @@ class BatchTrainer:
         # ── SHAP Explainability (on XGBoost) ──────────────────────────────────
         log.info("  Computing SHAP explainer for XGBoost ...")
         shap_sample = X_tr[:min(100, len(X_tr))]
-        explainer = shap.TreeExplainer(self.xgb)
-        # Pre-compute
-        _ = explainer.shap_values(shap_sample[:5])
-        joblib.dump(explainer, MODEL_DIR / "shap_explainer.joblib")
+        try:
+            explainer = shap.TreeExplainer(self.xgb)
+            _ = explainer.shap_values(shap_sample[:5])
+            joblib.dump(explainer, MODEL_DIR / "shap_explainer.joblib")
+        except Exception as e:
+            log.warning(f"  TreeExplainer failed (XGBoost compatibility issue): {e}")
+            log.info("  Falling back to LinearExplainer for SHAP...")
+            try:
+                explainer = shap.LinearExplainer(self.xgb, shap_sample)
+                joblib.dump(explainer, MODEL_DIR / "shap_explainer.joblib")
+            except Exception as e2:
+                log.warning(f"  LinearExplainer also failed: {e2}")
+                log.warning("  SHAP explainability disabled - RCA will work without feature contributions")
+                # Create a dummy explainer placeholder
+                joblib.dump(None, MODEL_DIR / "shap_explainer.joblib")
 
         # ── Persist models ────────────────────────────────────────────────────
         log.info("  Saving RCA models to disk ...")
@@ -848,8 +859,18 @@ class RCAEngine:
         global KPI_FEATURES_RCA
         log.info("Loading RCA models ...")
         required = [XGB_PATH, RCA_SCALER_PATH, LABEL_ENC_PATH, KNN_PATH, INCIDENT_DB_PATH]
-        if not all(p.exists() for p in required):
-            raise FileNotFoundError("RCA models (XGBoost) not found. Run with --mode train first.")
+        missing = [p for p in required if not p.exists()]
+        
+        if missing:
+            log.warning(f"RCA models not found: {[p.name for p in missing]}")
+            log.warning("RCA engine will operate in degraded mode (no root cause classification)")
+            self.xgb = None
+            self.rca_scaler = None
+            self.le = None
+            self.knn = None
+            self.incident_db = None
+            self.shap_explainer = None
+            return
 
         self.xgb          = joblib.load(XGB_PATH)
         self.rca_scaler   = joblib.load(RCA_SCALER_PATH)
@@ -862,9 +883,13 @@ class RCAEngine:
 
         # SHAP explainer
         shap_path = MODEL_DIR / "shap_explainer.joblib"
-        self.shap_explainer = joblib.load(shap_path) if shap_path.exists() else None
+        if shap_path.exists():
+            loaded = joblib.load(shap_path)
+            self.shap_explainer = loaded if loaded is not None else None
+        else:
+            self.shap_explainer = None
 
-        # Restore the exact feature list used during training
+        # Restore the exact feature list used from training
         feat_path = MODEL_DIR / "rca_kpi_features.joblib"
         if feat_path.exists():
             KPI_FEATURES_RCA = joblib.load(feat_path)
@@ -897,7 +922,7 @@ class RCAEngine:
         # recomputing for every event with the same top cause
         top_cause = ranked[0]["cause"]
         kpi_contributions = []
-        if self.shap_explainer is not None:
+        if self.shap_explainer is not None and hasattr(self.shap_explainer, 'shap_values'):
             if not hasattr(self, '_shap_cache'):
                 self._shap_cache = {}
             if top_cause in self._shap_cache:
@@ -971,6 +996,21 @@ class RCAEngine:
 
     def diagnose(self, kpi_snapshot: dict, rule_result: dict,
                  neighbour_escalated: bool = False) -> dict:
+        # Handle case when RCA models are not loaded
+        if self.xgb is None:
+            return {
+                "status": "degraded",
+                "primary_cause": "Unknown (RCA models not trained)",
+                "confidence_pct": 0.0,
+                "rca_tags": ["unclassified"],
+                "used_rule_override": False,
+                "neighbour_escalated": neighbour_escalated,
+                "ranked_causes": [],
+                "kpi_contributions": [],
+                "recommended_solution": "Train RCA models for root cause classification",
+                "similar_incidents": [],
+            }
+        
         x_raw = self._extract_kpi_vector(kpi_snapshot)
 
         if x_raw is None:
@@ -1079,22 +1119,41 @@ class StreamInferencer:
         tcnn_path = MODEL_DIR / "tcnn.pt"
         pred_path = MODEL_DIR / "gru_predictor.pt"
         
-        if not SCALER_PATH.exists() or not ae_path.exists() or not tcnn_path.exists() or not pred_path.exists():
-            raise FileNotFoundError("Anomaly models not found. Run with --mode train first.")
+        # Check for required models - warn if missing but try to continue
+        missing = []
+        if not SCALER_PATH.exists(): missing.append("scaler.joblib")
+        if not ae_path.exists(): missing.append("gru_ae.pt")
+        if not tcnn_path.exists(): missing.append("tcnn.pt")
+        if not pred_path.exists(): missing.append("gru_predictor.pt")
+        if missing:
+            log.warning(f"Missing models: {missing}")
+            log.warning("Attempting to continue with available models...")
 
         self.scaler = joblib.load(SCALER_PATH)
 
-        self.gru_ae = GRUAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        self.gru_ae.load_state_dict(torch.load(ae_path, map_location=self.device))
-        self.gru_ae.eval()
+        try:
+            self.gru_ae = GRUAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+            self.gru_ae.load_state_dict(torch.load(ae_path, map_location=self.device, weights_only=True))
+            self.gru_ae.eval()
+        except Exception as e:
+            log.error(f"  Failed to load GRU-AE: {e}")
+            raise RuntimeError("GRU-AE model required but failed to load. Run training first.")
 
-        self.tcnn = TemporalCNN(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        self.tcnn.load_state_dict(torch.load(tcnn_path, map_location=self.device))
-        self.tcnn.eval()
+        try:
+            self.tcnn = TemporalCNN(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+            self.tcnn.load_state_dict(torch.load(tcnn_path, map_location=self.device, weights_only=True))
+            self.tcnn.eval()
+        except Exception as e:
+            log.error(f"  Failed to load TCNN: {e}")
+            raise RuntimeError("TCNN model required but failed to load. Run training first.")
 
-        self.gru_pred = GRUPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
-        self.gru_pred.load_state_dict(torch.load(pred_path, map_location=self.device))
-        self.gru_pred.eval()
+        try:
+            self.gru_pred = GRUPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+            self.gru_pred.load_state_dict(torch.load(pred_path, map_location=self.device, weights_only=True))
+            self.gru_pred.eval()
+        except Exception as e:
+            log.error(f"  Failed to load GRU-Predictor: {e}")
+            raise RuntimeError("GRU-Predictor model required but failed to load. Run training first.")
 
         log.info("  DL Anomaly models loaded [OK]")
 
@@ -1228,8 +1287,18 @@ class StreamInferencer:
         log.info(f"  Feed output -> {RCA_FEED}")
         log.info("=" * 60)
 
-        # Clear previous feed
-        RCA_FEED.write_text("")
+        # Archive previous feed if exists (don't lose historical data)
+        if RCA_FEED.exists() and RCA_FEED.stat().st_size > 0:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            archive_path = RCA_FEED.with_suffix(f".jsonl.{timestamp}.bak")
+            try:
+                RCA_FEED.rename(archive_path)
+                log.info(f"  Archived previous feed -> {archive_path}")
+            except Exception as e:
+                log.warning(f"  Could not archive previous feed: {e}")
+                # Continue anyway, will append to existing
+        elif not RCA_FEED.exists():
+            RCA_FEED.parent.mkdir(parents=True, exist_ok=True)
 
         with open(RCA_FEED, "a", encoding="utf-8") as feed_file:
             reader = pd.read_csv(
@@ -1452,13 +1521,13 @@ def main():
 
     if args.mode in ("train", "all", "stream"):
         if not TS_KPI_PATH.exists():
-            log.error(f"Fichier KPI introuvable: {TS_KPI_PATH}")
-            log.error("Placez time_series_kpi.csv dans data/ ou passez --kpi-csv chemin/vers/fichier.csv")
+            log.error(f"KPI file not found: {TS_KPI_PATH}")
+            log.error("Place time_series_kpi.csv in data/ or use --kpi-csv path/to/file.csv")
             sys.exit(1)
     if args.mode in ("train", "all"):
         if not INCIDENTS_PATH.exists():
-            log.error(f"Fichier incidents introuvable: {INCIDENTS_PATH}")
-            log.error("Placez labeled_incidents.csv dans data/ ou passez --incidents-csv chemin/vers/fichier.csv")
+            log.error(f"Incidents file not found: {INCIDENTS_PATH}")
+            log.error("Place labeled_incidents.csv in data/ or use --incidents-csv path/to/file.csv")
             sys.exit(1)
 
     if args.mode in ("train", "all"):
