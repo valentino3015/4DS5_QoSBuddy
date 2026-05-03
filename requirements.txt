@@ -10,17 +10,18 @@ scipy==1.16.0
 joblib==1.5.1
 
 # ── Deep Learning ──
-torch==2.11.0
-torchaudio==2.11.0
-torchvision==0.26.0
+pytorch-lightning==2.6.1
+torchmetrics==1.9.0
+bitsandbytes==0.49.2
+sentencepiece
 
 # ── LLM / Transformers ──
-transformers==4.53.3
+transformers==5.5.4
 peft>=0.7.0
 accelerate==1.12.0
 safetensors==0.5.3
-tokenizers==0.21.2
-huggingface-hub==0.33.4
+tokenizers==0.22.2
+huggingface-hub==1.11.0
 
 # ── MLOps & Experiment Tracking ──
 mlflow==3.11.1

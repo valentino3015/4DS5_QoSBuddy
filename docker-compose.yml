@@ -1,0 +1,74 @@
+services:
+  llm-service:
+    build: .
+    image: qosbuddy-base
+    container_name: qosbuddy-llm
+    command: ["python", "LLM/App.py"]
+    ports:
+      - "8081:8081"
+    gpus: all
+    shm_size: "8gb"
+
+    environment:
+      - TRANSFORMERS_CACHE=/cache/hf
+
+    volumes:
+      # your code (LIVE from host)
+      - ./LLM:/app/LLM
+      - ./agents:/app/agents
+      - ./dashboard:/app/dashboard
+
+      # models + cache (persistent)
+      - ./models:/app/models
+      - hf_cache:/cache/hf
+      - pip_cache:/root/.cache/pip
+
+      # logs + data
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - ./mlruns:/app/mlruns
+      - ./mlflow_tracking.db:/app/mlflow_tracking.db
+
+  detection-agent:
+    image: qosbuddy-base
+    container_name: qosbuddy-detection
+    command: ["python", "agents/detection_agent.py", "--mode", "stream", "--chunk-size", "10"]
+    depends_on:
+      - llm-service
+    volumes:
+      - ./agents:/app/agents
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./mlruns:/app/mlruns
+
+  remediation-agent:
+    image: qosbuddy-base
+    container_name: qosbuddy-remediation
+    command: ["python", "agents/remediation_agent.py", "--tail-interval", "0.25"]
+    ports:
+      - "8080:8080"
+      - "8765:8765"
+    depends_on:
+      - llm-service
+    volumes:
+      - ./agents:/app/agents
+      - ./dashboard:/app/dashboard
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./mlruns:/app/mlruns
+
+  mlflow-ui:
+    image: qosbuddy-base
+    container_name: qosbuddy-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+      - ./mlflow_tracking.db:/app/mlflow_tracking.db
+    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000"]
+
+volumes:
+  hf_cache:
+  pip_cache:

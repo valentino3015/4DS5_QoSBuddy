@@ -12,7 +12,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, BitsAndBytesConfig
 from peft import PeftModel
 
 BASE_MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
-ADAPTER    = "Valentino3015/qosbuddy-lora"   # your HF repo
+ADAPTER    = "/app/models/qosbuddy-lora"   # Use local path instead of HF Hub
 
 bnb_config = BitsAndBytesConfig(
     load_in_4bit=True,
@@ -24,13 +24,16 @@ bnb_config = BitsAndBytesConfig(
 
 def load_model():
     print("Loading tokenizer...")
-    tokenizer = AutoTokenizer.from_pretrained(ADAPTER)  # tokenizer is in your adapter repo
+    tokenizer = AutoTokenizer.from_pretrained(ADAPTER, use_fast=False)
 
-    print("Loading base model... (downloads ~4GB in 4-bit on first run, then cached)")
+    print(f"Loading base model [{BASE_MODEL}]... (This can take 2-5 mins)")
     base = AutoModelForCausalLM.from_pretrained(
         BASE_MODEL,
         quantization_config=bnb_config,
-        device_map="auto"
+        device_map={"": 0},
+        torch_dtype=torch.float16,
+        low_cpu_mem_usage=True,
+        trust_remote_code=True
     )
 
     print("Applying LoRA adapter...")

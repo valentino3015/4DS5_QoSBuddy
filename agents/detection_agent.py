@@ -37,7 +37,7 @@ from tqdm import tqdm
 
 import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.metrics import classification_report
 from sklearn.neighbors import NearestNeighbors
@@ -229,6 +229,42 @@ class GRUAutoencoder(nn.Module):
             self.mse_p95 = torch.quantile(mse, 0.95)
 
 
+class LSTMAutoencoder(nn.Module):
+    """
+    Legacy LSTM Autoencoder (added back for comparison).
+    """
+    def __init__(self, input_dim: int, hidden_dim: int = 64, latent_dim: int = 16, num_layers: int = 2):
+        super().__init__()
+        self.encoder_lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
+        self.encoder_fc   = nn.Linear(hidden_dim, latent_dim)
+        self.decoder_fc   = nn.Linear(latent_dim, hidden_dim)
+        self.decoder_lstm = nn.LSTM(hidden_dim, hidden_dim, num_layers, batch_first=True, dropout=0.2 if num_layers > 1 else 0)
+        self.decoder_out  = nn.Linear(hidden_dim, input_dim)
+        self.register_buffer('mse_p5',  torch.tensor(0.0))
+        self.register_buffer('mse_p95', torch.tensor(1.0))
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, (h, _) = self.encoder_lstm(x)
+        latent    = self.encoder_fc(h[-1])
+        repeated  = self.decoder_fc(latent).unsqueeze(1).repeat(1, x.shape[1], 1)
+        out, _    = self.decoder_lstm(repeated)
+        return self.decoder_out(out)
+
+    def anomaly_score(self, x: torch.Tensor) -> np.ndarray:
+        self.eval()
+        with torch.no_grad():
+            mse   = torch.mean((x - self.forward(x)) ** 2, dim=(1, 2))
+            score = (mse - self.mse_p5) / (self.mse_p95 - self.mse_p5 + 1e-8)
+            return score.clamp(0, 1).cpu().numpy()
+
+    def calibrate(self, normal_tensor: torch.Tensor):
+        self.eval()
+        with torch.no_grad():
+            mse = torch.mean((normal_tensor - self.forward(normal_tensor)) ** 2, dim=(1, 2))
+            self.mse_p5  = torch.quantile(mse, 0.05)
+            self.mse_p95 = torch.quantile(mse, 0.95)
+
+
 class SARIMAForecaster:
     """
     Statistical forecasting model using ARIMA(2,1,1) per cell.
@@ -303,6 +339,30 @@ class TemporalCNN(nn.Module):
         x = self.pool(x).squeeze(-1)
         x = self.drop(x)
         return torch.sigmoid(self.anomaly_head(x)).squeeze(-1)
+
+class LSTMPredictor(nn.Module):
+    """
+    Legacy LSTM Predictor (added back for comparison).
+    Predicts future anomaly score from a sliding window.
+    """
+    def __init__(self, input_dim: int, hidden_dim: int = 64, num_layers: int = 2):
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_dim, hidden_dim, num_layers, batch_first=True, 
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        self.head = nn.Sequential(
+            nn.Linear(hidden_dim, 32),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, (h, _) = self.lstm(x)
+        return self.head(h[-1])
+
 
 class GRUPredictor(nn.Module):
     """
@@ -548,6 +608,61 @@ class BatchTrainer:
         torch.save(self.gru_ae.state_dict(), MODEL_DIR / "gru_ae.pt")
         log.info("  ✓ GRU-AE checkpointed")
 
+        # Train Legacy LSTM Autoencoder
+        log.info("Training Legacy LSTM Autoencoder on NORMAL sequences ...")
+        mlflow.start_run(run_name="LSTM-Autoencoder", nested=True)
+        mlflow.log_params({"batch_size": batch_size, "learning_rate": 1e-3, "early_stopping_patience": 4})
+
+        self.lstm_ae = LSTMAutoencoder(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        optim_lstm_ae = torch.optim.Adam(self.lstm_ae.parameters(), lr=1e-3)
+        es_lstm_ae = EarlyStopping(patience=4)
+        lstm_ae_train_metrics, lstm_ae_val_metrics = {}, {}
+
+        for epoch in range(1, 31):
+            self.lstm_ae.train()
+            epoch_loss = 0.0
+            pbar = tqdm(normal_loader, desc=f"  LSTM-AE Epoch {epoch:02d}", leave=False)
+            for (batch_x,) in pbar:
+                batch_x = batch_x.to(self.device)
+                optim_lstm_ae.zero_grad()
+                loss = F.mse_loss(self.lstm_ae(batch_x), batch_x)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.lstm_ae.parameters(), 1.0)
+                optim_lstm_ae.step()
+                epoch_loss += loss.item() * len(batch_x)
+                pbar.set_postfix(loss=f"{loss.item():.5f}")
+            epoch_loss /= max(len(X_tr_normal), 1)
+            lstm_ae_train_metrics[epoch] = epoch_loss
+
+            self.lstm_ae.eval()
+            v_loss = 0.0
+            with torch.no_grad():
+                for (bx,) in val_loader:
+                    bx = bx.to(self.device)
+                    v_loss += F.mse_loss(self.lstm_ae(bx), bx).item() * len(bx)
+            v_loss /= max(len(val_normal), 1)
+            lstm_ae_val_metrics[epoch] = v_loss
+
+            log.info(f"  LSTM-AE Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_lstm_ae.step(v_loss):
+                log.info(f"  ⛔ LSTM-AE early stop at epoch {epoch}")
+                break
+                
+        for ep in lstm_ae_train_metrics:
+            mlflow.log_metric("train_loss", lstm_ae_train_metrics[ep], step=ep)
+            mlflow.log_metric("val_loss", lstm_ae_val_metrics[ep], step=ep)
+        mlflow.log_metric("final_train_loss", epoch_loss)
+        mlflow.log_metric("final_val_loss", v_loss)
+        if es_lstm_ae.stopped:
+            mlflow.log_metric("early_stop_epoch", epoch)
+        mlflow.end_run()
+
+        if len(val_normal) > 0:
+            self.lstm_ae.calibrate(torch.FloatTensor(val_normal).to(self.device))
+
+        torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
+        log.info("  ✓ LSTM-AE checkpointed")
+
         # 2. Train TCNN on all sequences (Supervised)
         log.info("Training Temporal CNN on ALL sequences ...")
         mlflow.start_run(run_name="Temporal-CNN", nested=True)
@@ -687,12 +802,67 @@ class BatchTrainer:
         torch.save(self.gru_pred.state_dict(), MODEL_DIR / "gru_predictor.pt")
         log.info("  ✓ GRU-Predictor checkpointed")
 
+        # 4. Train LSTM Predictor (Legacy comparison)
+        log.info("Training Legacy LSTM Predictor on ALL sequences ...")
+        mlflow.start_run(run_name="LSTM-Predictor", nested=True)
+        mlflow.log_params({"batch_size": batch_size, "learning_rate": 1e-3, "early_stopping_patience": 4})
+
+        self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        optim_lstm = torch.optim.Adam(self.lstm_pred.parameters(), lr=1e-3)
+        es_lstm = EarlyStopping(patience=4)
+        lstm_train_metrics, lstm_val_metrics = {}, {}
+
+        for epoch in range(1, 31):
+            self.lstm_pred.train()
+            epoch_loss = 0.0
+            pbar = tqdm(gru_loader, desc=f"  LSTM-Predictor Epoch {epoch:02d}", leave=False)
+            for batch_x, batch_y in pbar:
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+                optim_lstm.zero_grad()
+                preds = self.lstm_pred(batch_x).squeeze(-1)
+                loss = mse_loss(preds, batch_y)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.lstm_pred.parameters(), 1.0)
+                optim_lstm.step()
+                epoch_loss += loss.item() * len(batch_x)
+                pbar.set_postfix(loss=f"{loss.item():.5f}")
+            epoch_loss /= max(len(X_tr), 1)
+            lstm_train_metrics[epoch] = epoch_loss
+
+            self.lstm_pred.eval()
+            v_loss = 0.0
+            with torch.no_grad():
+                for bx, by in gru_val_loader:
+                    bx, by = bx.to(self.device), by.to(self.device)
+                    v_loss += mse_loss(self.lstm_pred(bx).squeeze(-1), by).item() * len(bx)
+            v_loss /= max(len(X_val), 1)
+            lstm_val_metrics[epoch] = v_loss
+
+            log.info(f"  LSTM Predictor Epoch {epoch:02d} — train={epoch_loss:.5f} | val={v_loss:.5f}")
+            if es_lstm.step(v_loss):
+                log.info(f"  ⛔ LSTM-Predictor early stop at epoch {epoch}")
+                break
+        
+        for ep in lstm_train_metrics:
+            mlflow.log_metric("train_loss", lstm_train_metrics[ep], step=ep)
+            mlflow.log_metric("val_loss", lstm_val_metrics[ep], step=ep)
+        mlflow.log_metric("final_train_loss", epoch_loss)
+        mlflow.log_metric("final_val_loss", v_loss)
+        if es_lstm.stopped:
+            mlflow.log_metric("early_stop_epoch", epoch)
+        mlflow.end_run()
+        
+        torch.save(self.lstm_pred.state_dict(), MODEL_DIR / "lstm_predictor.pt")
+        log.info("  ✓ LSTM-Predictor checkpointed")
+
         # Save scaler + upload all artifacts to MLflow
         joblib.dump(self.scaler, SCALER_PATH)
         
         mlflow.log_artifact(str(MODEL_DIR / "gru_ae.pt"), artifact_path="models")
+        mlflow.log_artifact(str(MODEL_DIR / "lstm_ae.pt"), artifact_path="models")
         mlflow.log_artifact(str(MODEL_DIR / "tcnn.pt"), artifact_path="models")
         mlflow.log_artifact(str(MODEL_DIR / "gru_predictor.pt"), artifact_path="models")
+        mlflow.log_artifact(str(MODEL_DIR / "lstm_predictor.pt"), artifact_path="models")
         mlflow.log_artifact(str(SCALER_PATH), artifact_path="scalers")
 
         log.info("  DL Models saved [OK]")
@@ -732,6 +902,22 @@ class BatchTrainer:
         log.info(f"  XGBoost Accuracy: {report_xgb['accuracy']:.4f}")
 
         mlflow.log_metric("accuracy", report_xgb["accuracy"])
+        mlflow.log_param("n_estimators", 300)
+        mlflow.log_param("max_depth", 6)
+        mlflow.end_run()
+
+        # ── Random Forest (Legacy comparison) ──
+        log.info("Training Legacy Random Forest classifier for comparison ...")
+        mlflow.start_run(run_name="RCA_RandomForest", nested=True)
+        
+        self.rf = RandomForestClassifier(n_estimators=300, max_depth=6, random_state=42, n_jobs=-1)
+        self.rf.fit(X_tr, y_tr)
+        y_pred_rf = self.rf.predict(X_val)
+        
+        report_rf = classification_report(y_val, y_pred_rf, target_names=self.le.classes_, zero_division=0, output_dict=True)
+        log.info(f"  Random Forest Accuracy: {report_rf['accuracy']:.4f}")
+        
+        mlflow.log_metric("accuracy", report_rf["accuracy"])
         mlflow.log_param("n_estimators", 300)
         mlflow.log_param("max_depth", 6)
         mlflow.end_run()
@@ -823,6 +1009,22 @@ class BatchTrainer:
             log.info("  ✓ SARIMA Phase Complete.")
             sys.stdout.flush()
     
+            # Phase A3: Isolation Forest
+            log.info("-" * 60)
+            log.info("Phase A3: Isolation Forest (Legacy comparison)")
+            log.info("-" * 60)
+            mlflow.start_run(run_name="IsolationForest-Anomaly", nested=True)
+            self.iso = IsolationForest(n_estimators=100, contamination=0.05, random_state=42, n_jobs=-1)
+            # Flatten KPI for isolation forest
+            X_iso = df_kpi[KPI_FEATURES_ANOMALY].fillna(0).values
+            X_iso = self.scaler.transform(X_iso)
+            log.info(f"  Fitting Isolation Forest on {len(X_iso):,} samples ...")
+            self.iso.fit(X_iso)
+            log.info("  ✓ Isolation Forest trained.")
+            mlflow.log_param("n_estimators", 100)
+            mlflow.log_param("contamination", 0.05)
+            mlflow.end_run()
+
             # Phase B: RCA models
             log.info("-" * 60)
             log.info("Phase B: Root Cause Analysis Models")
@@ -861,7 +1063,11 @@ class RCAEngine:
 
         # SHAP explainer
         shap_path = MODEL_DIR / "shap_explainer.joblib"
-        self.shap_explainer = joblib.load(shap_path) if shap_path.exists() else None
+        try:
+            self.shap_explainer = joblib.load(shap_path) if shap_path.exists() else None
+        except Exception as e:
+            log.warning(f"Could not load SHAP explainer (likely Python version mismatch): {e}")
+            self.shap_explainer = None
 
         # Restore the exact feature list used during training
         feat_path = MODEL_DIR / "rca_kpi_features.joblib"
