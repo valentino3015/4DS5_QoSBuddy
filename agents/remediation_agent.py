@@ -145,7 +145,8 @@ class RemediationEngine:
             # If we already determined the LLM is down, skip to fallback instantly
             pass
         else:
-            url = f"http://127.0.0.1:{LLM_PORT}/predict"
+            llm_host = os.environ.get("LLM_HOST", "127.0.0.1")
+            url = f"http://{llm_host}:{LLM_PORT}/predict"
             safe_event = clean_nan(rca_event)
             max_retries = 3
             for attempt in range(1, max_retries + 1):
@@ -549,7 +550,7 @@ def main():
 
     prepare_dashboard(args.ws_port)
 
-    ws_thread = threading.Thread(target=start_ws_thread, args=("localhost", args.ws_port), daemon=True)
+    ws_thread = threading.Thread(target=start_ws_thread, args=("0.0.0.0", args.ws_port), daemon=True)
     ws_thread.start()
     log.info("Waiting for WebSocket server ...")
     WS_READY.wait(timeout=10)

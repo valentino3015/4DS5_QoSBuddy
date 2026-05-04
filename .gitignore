@@ -1,7 +1,12 @@
-.venv
-/data/
-/models/
-/logs/
+/data/*
+!/data/output/.gitkeep
+/models/*
+!/models/.gitkeep
+/logs/*
+!/logs/.gitkeep
+/LLM/mistral-7b-v0.2/
+/LLM/qosbuddy-lora/
+rca_feed.jsonl
 
 # MLflow
 mlruns/
