@@ -138,7 +138,7 @@ class RemediationEngine:
                 llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
         else:
             try:
-                url = f"http://127.0.0.1:{LLM_PORT}/predict"
+                url = f"http://valshost.ddns.net:{LLM_PORT}/predict"
                 # Disable LLM timeout so it doesn't drop long generations, max 600s
                 safe_event = clean_nan(rca_event)
                 response = requests.post(url, json=safe_event, timeout=600.0)
