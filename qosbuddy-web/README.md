@@ -193,6 +193,7 @@ npm start
 - Dashboard
 ![dash](image-10.png)
 - Notification
+
 ![alt text](image-7.png)
 - Map
 ![map](image-1.png)
