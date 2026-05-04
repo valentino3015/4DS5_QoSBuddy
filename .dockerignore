@@ -1,0 +1,22 @@
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+*.pyc
+logs/*
+!logs/.gitkeep
+data/*
+!data/output/.gitkeep
+models/*
+!models/output/llm_chache.jsonl
+!models/.gitkeep
+LLM/*
+!LLM/.gitkeep
+mlruns/
+mlflow_tracking.db
+.idea/
+.vscode/
+dashboard/index bk.html
+rca_feed.jsonl

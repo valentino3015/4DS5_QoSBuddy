@@ -1,0 +1,24 @@
+docker-compose run --rm --no-deps detection-agent python agents/detection_agent.py --mode train
+
+docker-compose up -d mlflow-ui
+docker-compose up -d detection-agent
+docker-compose up -d llm-service
+docker-compose up -d remediation-agent
+
+docker-compose down
+
+docker-compose run --rm --no-deps llm-service python LLM/App.py
+
+docker-compose run --rm --no-deps detection-agent python agents/detection_agent.py --mode stream --chunk-size 10
+
+docker-compose run --rm --no-deps remediation-agent python agents/remediation_agent.py --tail-interval 0.25
+
+docker-compose exec llm-service python LLM/App.py
+
+docker-compose exec detection-agent python agents/detection_agent.py --mode stream --chunk-size 10
+
+docker-compose exec remediation-agent python agents/remediation_agent.py --tail-interval 0.25
+
+docker-compose logs -f llm-service
+docker-compose logs -f detection-agent
+docker-compose logs -f remediation-agent
