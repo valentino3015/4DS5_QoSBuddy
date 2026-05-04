@@ -41,6 +41,7 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
+      - ./mlflow_tracking.db:/app/mlflow_tracking.db
 
   remediation-agent:
     image: qosbuddy-base
@@ -58,6 +59,7 @@ services:
       - ./models:/app/models
       - ./logs:/app/logs
       - ./mlruns:/app/mlruns
+      - ./mlflow_tracking.db:/app/mlflow_tracking.db
 
   mlflow-ui:
     image: qosbuddy-base
@@ -67,7 +69,7 @@ services:
     volumes:
       - ./mlruns:/app/mlruns
       - ./mlflow_tracking.db:/app/mlflow_tracking.db
-    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000"]
+    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:///mlflow_tracking.db"]
 
 volumes:
   hf_cache:
