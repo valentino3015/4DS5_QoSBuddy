@@ -191,7 +191,8 @@ npm start
 - Authentication
 ![auth](image.png)
 - Dashboard
-- notification
+![dash](image-10.png)
+- Notification
 ![alt text](image-7.png)
 - Map
 ![map](image-1.png)
@@ -205,6 +206,22 @@ npm start
 - Reports
 ![report](image-4.png)
 ![pdf](image-8.png)
+
+
+
+## Quick running commands: 
+remediation : 
+```bash
+python agents/remediation_agent.py --no-browser
+```
+detection:
+```bash python agents/detection_agent.py --mode stream
+```
+web: 
+```bash
+cd qosbuddy-web 
+npm run dev
+```
 ---
 
 **Last Updated**: May 2026
