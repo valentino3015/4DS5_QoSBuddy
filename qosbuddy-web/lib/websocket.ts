@@ -52,7 +52,7 @@ interface WebSocketMessage {
   [key: string]: any
 }
 
-export function useWebSocket(url: string = 'ws://localhost:8085') {
+export function useWebSocket(url: string = 'ws://localhost:8765') {
   const [events, setEvents] = useState<RCAEvent[]>([])
   const [isConnected, setIsConnected] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -73,12 +73,14 @@ export function useWebSocket(url: string = 'ws://localhost:8085') {
           const data: WebSocketMessage = JSON.parse(message.data)
           
           if (data.type === 'snapshot') {
-            // Initial snapshot of events - data is an array directly in snapshot
-            const snapshotData = Array.isArray(data.data) ? data.data : []
-            setEvents(snapshotData as RCAEvent[])
+            // Remediation agent sends snapshot as { type: 'snapshot', events: [...], stats, ... }
+            const snapshotData = Array.isArray(data.events) ? data.events : []
+            // Reverse so newest events come first (agent stores oldest-first)
+            setEvents([...snapshotData].reverse() as RCAEvent[])
           } else if (data.type === 'event') {
-            // New event - add to beginning
-            setEvents(prev => [data.data as RCAEvent, ...prev].slice(0, 2000))
+            // New live event - add to beginning
+            const newEvent = data.data as RCAEvent
+            setEvents(prev => [newEvent, ...prev].slice(0, 2000))
           }
         } catch (e) {
           console.error('Failed to parse WebSocket message:', e)

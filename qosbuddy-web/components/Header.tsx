@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Bell, Search, User, X, AlertTriangle, CheckCircle, Info } from 'lucide-react'
 import { useWebSocket } from '@/lib/websocket'
 import { useNotifications } from '@/lib/notifications'
@@ -20,6 +20,7 @@ export default function Header() {
   const [showNotifications, setShowNotifications] = useState(false)
   const { events } = useWebSocket('ws://localhost:8765')
   const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead } = useNotifications()
+  const processedEvents = useRef<Set<string>>(new Set())
 
   // Fetch current user
   useEffect(() => {
@@ -39,16 +40,19 @@ export default function Header() {
     fetchUser()
   }, [])
 
-  // Add notifications for critical/high events
+  // Add notifications for critical/high events (deduped by event id)
   useEffect(() => {
     const latestEvent = events[0]
     if (latestEvent && ['critical', 'high'].includes(latestEvent.anomaly_severity)) {
-      addNotification({
-        title: `Critical Alert: ${latestEvent.cell_id}`,
-        message: latestEvent.rca?.primary_cause || 'Anomaly detected',
-        type: 'error',
-        link: `/incidents?id=${latestEvent.rca_event_id}`
-      })
+      if (!processedEvents.current.has(latestEvent.rca_event_id)) {
+        processedEvents.current.add(latestEvent.rca_event_id)
+        addNotification({
+          title: `Critical Alert: ${latestEvent.cell_id}`,
+          message: latestEvent.rca?.primary_cause || 'Anomaly detected',
+          type: 'error',
+          link: `/incidents?id=${latestEvent.rca_event_id}`
+        })
+      }
     }
   }, [events, addNotification])
 
@@ -74,7 +78,9 @@ export default function Header() {
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 w-2 h-2 bg-rose-500 rounded-full animate-pulse" />
+              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-rose-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center animate-pulse">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
             )}
           </button>
 

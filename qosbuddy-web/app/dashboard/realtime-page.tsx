@@ -24,7 +24,7 @@ import Link from 'next/link'
 
 export default function RealtimeDashboard() {
   const { events, isConnected } = useWebSocket('ws://localhost:8765')
-  const { notifications, unreadCount, addNotification, markAsRead } = useNotifications()
+  const { notifications, unreadCount, markAsRead } = useNotifications()
   const [stats, setStats] = useState({
     totalProcessed: 0,
     anomalies: 0,
@@ -48,18 +48,7 @@ export default function RealtimeDashboard() {
     }
   }, [events])
 
-  // Add notifications for critical events
-  useEffect(() => {
-    const latestEvent = events[0]
-    if (latestEvent && ['critical', 'high'].includes(latestEvent.anomaly_severity)) {
-      addNotification({
-        title: `Critical Alert: ${latestEvent.cell_id}`,
-        message: latestEvent.rca?.primary_cause || 'Anomaly detected',
-        type: 'error',
-        link: `/incidents?id=${latestEvent.rca_event_id}`
-      })
-    }
-  }, [events, addNotification])
+  // Notifications are added by Header.tsx via the shared NotificationContext
 
   // Prepare chart data
   const severityData = [

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { NotificationProvider } from '@/lib/notifications'
 
 export const metadata: Metadata = {
   title: 'QoSBuddy - Network Quality Monitoring',
@@ -13,7 +14,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <NotificationProvider>
+          {children}
+        </NotificationProvider>
+      </body>
     </html>
   )
 }

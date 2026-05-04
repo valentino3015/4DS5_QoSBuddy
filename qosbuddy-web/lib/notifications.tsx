@@ -1,4 +1,6 @@
-import { useState, useCallback } from 'react'
+'use client'
+
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 
 export interface Notification {
   id: string
@@ -10,7 +12,18 @@ export interface Notification {
   link?: string
 }
 
-export function useNotifications() {
+interface NotificationContextValue {
+  notifications: Notification[]
+  unreadCount: number
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => void
+  markAsRead: (id: string) => void
+  markAllAsRead: () => void
+  removeNotification: (id: string) => void
+}
+
+const NotificationContext = createContext<NotificationContextValue | null>(null)
+
+export function NotificationProvider({ children }: { children: ReactNode }) {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
 
@@ -21,21 +34,12 @@ export function useNotifications() {
       timestamp: new Date(),
       read: false
     }
-    
     setNotifications(prev => [newNotification, ...prev].slice(0, 50)) // Keep last 50
     setUnreadCount(prev => prev + 1)
-    
-    // Browser notification if permitted
-    if (Notification.permission === 'granted' && notification.type === 'error') {
-      new Notification(notification.title, {
-        body: notification.message,
-        icon: '/favicon.ico'
-      })
-    }
   }, [])
 
   const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => 
+    setNotifications(prev =>
       prev.map(n => n.id === id ? { ...n, read: true } : n)
     )
     setUnreadCount(prev => Math.max(0, prev - 1))
@@ -56,19 +60,19 @@ export function useNotifications() {
     })
   }, [])
 
-  const requestPermission = useCallback(async () => {
-    if ('Notification' in window && Notification.permission === 'default') {
-      await Notification.requestPermission()
-    }
-  }, [])
+  return (
+    <NotificationContext.Provider
+      value={{ notifications, unreadCount, addNotification, markAsRead, markAllAsRead, removeNotification }}
+    >
+      {children}
+    </NotificationContext.Provider>
+  )
+}
 
-  return {
-    notifications,
-    unreadCount,
-    addNotification,
-    markAsRead,
-    markAllAsRead,
-    removeNotification,
-    requestPermission
+export function useNotifications(): NotificationContextValue {
+  const ctx = useContext(NotificationContext)
+  if (!ctx) {
+    throw new Error('useNotifications must be used within a NotificationProvider')
   }
+  return ctx
 }

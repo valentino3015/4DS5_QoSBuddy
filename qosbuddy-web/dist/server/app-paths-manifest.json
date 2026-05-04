@@ -1,12 +1,9 @@
 {
-  "/login/page": "app/login/page.js",
   "/map/page": "app/map/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/login/page": "app/login/page.js",
+  "/incidents/page": "app/incidents/page.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/cells/route": "app/api/cells/route.js",
-  "/incidents/page": "app/incidents/page.js",
-  "/dashboard/page": "app/dashboard/page.js",
-  "/users/page": "app/users/page.js",
-  "/remediation/page": "app/remediation/page.js",
-  "/api/users/route": "app/api/users/route.js",
-  "/reports/page": "app/reports/page.js"
+  "/remediation/page": "app/remediation/page.js"
 }

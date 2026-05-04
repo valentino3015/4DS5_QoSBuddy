@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   AlertTriangle,
   Download,
@@ -12,14 +12,15 @@ import {
   Calendar,
   Activity,
   BrainCircuit,
-  FileDown
+  FileDown,
+  FileSpreadsheet,
+  Printer
 } from 'lucide-react'
-import { mockIncidents } from '@/lib/data'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { cn, formatDate, getSeverityColor } from '@/lib/utils'
 import { jsPDF } from 'jspdf'
-import { useWebSocket } from '@/lib/websocket'
+import { useWebSocket, RCAEvent } from '@/lib/websocket'
 
 interface Incident {
   id: string
@@ -29,70 +30,55 @@ interface Incident {
   timestamp: string
   severity: 'normal' | 'low' | 'medium' | 'high' | 'critical'
   anomalyScore: number
-  kpiSnapshot: {
-    rsrp: number
-    sinr: number
-    prbUtilDL: number
-    prbUtilUL: number
-    cqi: number
-    blerDL: number
-    blerUL: number
-    throughputDL: number
-    throughputUL: number
-    latency: number
-    callDropRate: number
-    hoSuccessRate: number
-    mos: number
-    mimoRank: number
-    activeUsers: number
-  }
+  kpiSnapshot: Record<string, number>
   rca: {
-    predictedCause: string
-    confidence: number
-    topFeatures: { feature: string; importance: number }[]
-    similarCases: number
+    primary_cause?: string
+    confidence?: number
+    explanation?: string
   }
   remediation?: {
-    action: string
-    steps: string[]
-    priority: string
-    effort: string
-    eta: number
-    auto: boolean
+    cause: string
+    primary_action: {
+      action: string
+      steps: string[]
+      priority: string
+      effort: string
+      eta_hours: number
+      auto: boolean
+    }
+    summary: string
+    impact: string
   }
 }
 
 export default function IncidentsPage() {
-  const { events } = useWebSocket('ws://localhost:8765')
+  const { events, isConnected } = useWebSocket('ws://localhost:8765')
+  const [incidents, setIncidents] = useState<Incident[]>([])
   const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
-  const [filterSeverity, setFilterSeverity] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
+  const [filterSeverity, setFilterSeverity] = useState('all')
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 20
 
-  // Convert WebSocket events to incidents format
-  const incidents: Incident[] = events.map(event => ({
-    id: event.rca_event_id || `RCA-${event.timestamp}`,
-    cellId: event.cell_id,
-    siteId: event.cell_id.split('_').slice(0, 2).join('_'),
-    region: event.region,
-    timestamp: event.timestamp,
-    severity: event.anomaly_severity as any,
-    anomalyScore: event.anomaly_score,
-    kpiSnapshot: event.kpi_snapshot as any,
-    rca: {
-      predictedCause: event.rca?.primary_cause || 'Unknown',
-      confidence: event.rca?.confidence || 0,
-      topFeatures: event.rca?.contributing_factors?.map((f: string) => ({ feature: f, importance: 0.5 })) || [],
-      similarCases: 0
-    },
-    remediation: event.remediation ? {
-      action: event.remediation.primary_action?.action || event.remediation.cause,
-      steps: event.remediation.primary_action?.steps || [],
-      priority: event.remediation.primary_action?.priority || 'Medium',
-      effort: event.remediation.primary_action?.effort || 'Medium',
-      eta: event.remediation.primary_action?.eta_hours || 2,
-      auto: event.remediation.primary_action?.auto || false
-    } : undefined
-  }))
+  useEffect(() => {
+    const convertedIncidents = events.map(event => ({
+      id: event.rca_event_id,
+      cellId: event.cell_id,
+      siteId: event.site_id || '',
+      region: event.region,
+      timestamp: event.timestamp,
+      severity: event.anomaly_severity,
+      anomalyScore: event.anomaly_score,
+      kpiSnapshot: event.kpi_snapshot,
+      rca: {
+        primary_cause: event.rca?.primary_cause || 'Unknown',
+        confidence: event.rca?.confidence || 0,
+        explanation: event.rca?.explanation || ''
+      },
+      remediation: event.remediation
+    }))
+    setIncidents(convertedIncidents)
+  }, [events])
 
   const filteredIncidents = incidents.filter(incident => {
     if (filterSeverity !== 'all' && incident.severity !== filterSeverity) return false
@@ -168,27 +154,10 @@ export default function IncidentsPage() {
     
     doc.setFontSize(10)
     doc.setTextColor(0, 0, 0)
-    doc.text(`Predicted Cause: ${incident.rca.predictedCause}`, 20, y)
+    doc.text(`Predicted Cause: ${incident.rca.primary_cause}`, 20, y)
     y += 6
     doc.text(`Confidence: ${(incident.rca.confidence * 100).toFixed(0)}%`, 20, y)
-    y += 6
-    doc.text(`Similar Cases: ${incident.rca.similarCases}`, 20, y)
     y += 10
-    
-    // Top Features
-    if (incident.rca.topFeatures.length > 0) {
-      doc.setFontSize(12)
-      doc.setTextColor(44, 62, 80)
-      doc.text('Contributing Factors:', 20, y)
-      y += 8
-      
-      doc.setFontSize(10)
-      doc.setTextColor(0, 0, 0)
-      incident.rca.topFeatures.forEach(feature => {
-        doc.text(`• ${feature.feature}: ${(feature.importance * 100).toFixed(0)}%`, 20, y)
-        y += 6
-      })
-    }
     
     // KPI Snapshot
     y += 10
@@ -200,13 +169,13 @@ export default function IncidentsPage() {
     doc.setFontSize(10)
     doc.setTextColor(0, 0, 0)
     const kpiLines = [
-      `RSRP: ${incident.kpiSnapshot.rsrp} dBm`,
-      `SINR: ${incident.kpiSnapshot.sinr} dB`,
-      `Throughput DL: ${incident.kpiSnapshot.throughputDL} Mbps`,
-      `Throughput UL: ${incident.kpiSnapshot.throughputUL} Mbps`,
-      `Latency: ${incident.kpiSnapshot.latency} ms`,
-      `Call Drop Rate: ${incident.kpiSnapshot.callDropRate}%`,
-      `Active Users: ${incident.kpiSnapshot.activeUsers}`,
+      `RSRP: ${incident.kpiSnapshot.RSRP_dBm || incident.kpiSnapshot.rsrp || 'N/A'} dBm`,
+      `SINR: ${incident.kpiSnapshot.SINR_dB || incident.kpiSnapshot.sinr || 'N/A'} dB`,
+      `Throughput DL: ${incident.kpiSnapshot.throughput_DL_Mbps || incident.kpiSnapshot.throughputDL || 'N/A'} Mbps`,
+      `Throughput UL: ${incident.kpiSnapshot.throughput_UL_Mbps || incident.kpiSnapshot.throughputUL || 'N/A'} Mbps`,
+      `Latency: ${incident.kpiSnapshot.latency_ms || incident.kpiSnapshot.latency || 'N/A'} ms`,
+      `Call Drop Rate: ${incident.kpiSnapshot.call_drop_rate_pct || incident.kpiSnapshot.callDropRate || 'N/A'}%`,
+      `Active Users: ${incident.kpiSnapshot.active_users || incident.kpiSnapshot.activeUsers || 'N/A'}`,
     ]
     kpiLines.forEach(line => {
       doc.text(line, 20, y)
@@ -223,11 +192,11 @@ export default function IncidentsPage() {
       
       doc.setFontSize(10)
       doc.setTextColor(0, 0, 0)
-      doc.text(`Action: ${incident.remediation.action}`, 20, y)
+      doc.text(`Action: ${incident.remediation.primary_action?.action || incident.remediation.cause}`, 20, y)
       y += 6
-      doc.text(`Priority: ${incident.remediation.priority}`, 20, y)
+      doc.text(`Priority: ${incident.remediation.primary_action?.priority || 'Medium'}`, 20, y)
       y += 6
-      doc.text(`ETA: ${incident.remediation.eta}h`, 20, y)
+      doc.text(`ETA: ${incident.remediation.primary_action?.eta_hours || 'N/A'}h`, 20, y)
       y += 10
       
       doc.setFontSize(12)
@@ -237,7 +206,8 @@ export default function IncidentsPage() {
       
       doc.setFontSize(10)
       doc.setTextColor(0, 0, 0)
-      incident.remediation.steps.forEach((step, idx) => {
+      const steps = incident.remediation.primary_action?.steps || []
+      steps.forEach((step, idx) => {
         const lines = doc.splitTextToSize(`${idx + 1}. ${step}`, 170)
         lines.forEach((line: string) => {
           doc.text(line, 20, y)
@@ -388,7 +358,7 @@ export default function IncidentsPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-navy-300 max-w-xs truncate">
-                        {incident.rca.predictedCause}
+                        {incident.rca.primary_cause}
                       </td>
                       <td className="px-4 py-3 text-navy-400">
                         {formatDate(incident.timestamp)}
