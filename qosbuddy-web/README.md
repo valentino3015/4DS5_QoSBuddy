@@ -187,7 +187,20 @@ npm start
 - Map fetches cell topology on mount (shows loading spinner)
 - PDF generation happens client-side (jsPDF)
 - Database auto-migrates on first login
-
+## Screenshots
+- Authentication
+![auth](image.png)
+- Dashboard
+- Map
+![map](image-1.png)
+![map2](image-2.png)
+![alt text](image-5.png)
+- Incidents
+- Remediation
+- Users
+![users](image-3.png)
+- Reports
+![report](image-4.png)
 ---
 
 **Last Updated**: May 2026

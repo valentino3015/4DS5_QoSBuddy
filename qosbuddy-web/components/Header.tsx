@@ -2,17 +2,42 @@
 
 import { useState, useEffect } from 'react'
 import { Bell, Search, User, X, AlertTriangle, CheckCircle, Info } from 'lucide-react'
-import { mockUsers } from '@/lib/data'
 import { useWebSocket } from '@/lib/websocket'
 import { useNotifications } from '@/lib/notifications'
 import { cn } from '@/lib/utils'
 import Link from 'next/link'
 
+interface UserData {
+  id: number
+  name: string
+  email: string
+  role: string
+}
+
 export default function Header() {
-  const user = mockUsers[0]
+  const [user, setUser] = useState<UserData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [showNotifications, setShowNotifications] = useState(false)
   const { events } = useWebSocket('ws://localhost:8765')
   const { notifications, unreadCount, addNotification, markAsRead, markAllAsRead } = useNotifications()
+
+  // Fetch current user
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const response = await fetch('/api/auth/me')
+        if (response.ok) {
+          const userData = await response.json()
+          setUser(userData)
+        }
+      } catch (error) {
+        console.error('Failed to fetch user:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUser()
+  }, [])
 
   // Add notifications for critical/high events
   useEffect(() => {
@@ -121,8 +146,16 @@ export default function Header() {
         {/* User */}
         <div className="flex items-center gap-3 pl-4 border-l border-navy-500/30">
           <div className="text-right hidden sm:block">
-            <p className="text-sm font-medium text-white">{user.name}</p>
-            <p className="text-xs text-navy-400 capitalize">{user.role}</p>
+            {loading ? (
+              <p className="text-sm font-medium text-white">Loading...</p>
+            ) : user ? (
+              <>
+                <p className="text-sm font-medium text-white">{user.name}</p>
+                <p className="text-xs text-navy-400 capitalize">{user.role}</p>
+              </>
+            ) : (
+              <p className="text-sm font-medium text-white">Guest</p>
+            )}
           </div>
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-accent-purple to-accent-blue flex items-center justify-center">
             <User className="w-5 h-5 text-white" />

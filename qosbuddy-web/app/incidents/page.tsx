@@ -19,20 +19,89 @@ import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { cn, formatDate, getSeverityColor } from '@/lib/utils'
 import { jsPDF } from 'jspdf'
+import { useWebSocket } from '@/lib/websocket'
+
+interface Incident {
+  id: string
+  cellId: string
+  siteId: string
+  region: string
+  timestamp: string
+  severity: 'normal' | 'low' | 'medium' | 'high' | 'critical'
+  anomalyScore: number
+  kpiSnapshot: {
+    rsrp: number
+    sinr: number
+    prbUtilDL: number
+    prbUtilUL: number
+    cqi: number
+    blerDL: number
+    blerUL: number
+    throughputDL: number
+    throughputUL: number
+    latency: number
+    callDropRate: number
+    hoSuccessRate: number
+    mos: number
+    mimoRank: number
+    activeUsers: number
+  }
+  rca: {
+    predictedCause: string
+    confidence: number
+    topFeatures: { feature: string; importance: number }[]
+    similarCases: number
+  }
+  remediation?: {
+    action: string
+    steps: string[]
+    priority: string
+    effort: string
+    eta: number
+    auto: boolean
+  }
+}
 
 export default function IncidentsPage() {
-  const [selectedIncident, setSelectedIncident] = useState<typeof mockIncidents[0] | null>(null)
+  const { events } = useWebSocket('ws://localhost:8765')
+  const [selectedIncident, setSelectedIncident] = useState<Incident | null>(null)
   const [filterSeverity, setFilterSeverity] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
-  const filteredIncidents = mockIncidents.filter(incident => {
+  // Convert WebSocket events to incidents format
+  const incidents: Incident[] = events.map(event => ({
+    id: event.rca_event_id || `RCA-${event.timestamp}`,
+    cellId: event.cell_id,
+    siteId: event.cell_id.split('_').slice(0, 2).join('_'),
+    region: event.region,
+    timestamp: event.timestamp,
+    severity: event.anomaly_severity as any,
+    anomalyScore: event.anomaly_score,
+    kpiSnapshot: event.kpi_snapshot as any,
+    rca: {
+      predictedCause: event.rca?.primary_cause || 'Unknown',
+      confidence: event.rca?.confidence || 0,
+      topFeatures: event.rca?.contributing_factors?.map((f: string) => ({ feature: f, importance: 0.5 })) || [],
+      similarCases: 0
+    },
+    remediation: event.remediation ? {
+      action: event.remediation.primary_action?.action || event.remediation.cause,
+      steps: event.remediation.primary_action?.steps || [],
+      priority: event.remediation.primary_action?.priority || 'Medium',
+      effort: event.remediation.primary_action?.effort || 'Medium',
+      eta: event.remediation.primary_action?.eta_hours || 2,
+      auto: event.remediation.primary_action?.auto || false
+    } : undefined
+  }))
+
+  const filteredIncidents = incidents.filter(incident => {
     if (filterSeverity !== 'all' && incident.severity !== filterSeverity) return false
     if (searchTerm && !incident.id.toLowerCase().includes(searchTerm.toLowerCase()) &&
         !incident.cellId.toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
 
-  const downloadReport = (incident: typeof mockIncidents[0]) => {
+  const downloadReport = (incident: Incident) => {
     const report = {
       incident_id: incident.id,
       timestamp: incident.timestamp,
@@ -56,7 +125,7 @@ export default function IncidentsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const downloadPDF = (incident: typeof mockIncidents[0]) => {
+  const downloadPDF = (incident: Incident) => {
     const doc = new jsPDF()
     
     // Header
@@ -357,7 +426,7 @@ export default function IncidentsPage() {
             {/* Pagination */}
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-navy-400">
-                Showing {filteredIncidents.length} of {mockIncidents.length} incidents
+                Showing {filteredIncidents.length} of {incidents.length} incidents
               </p>
               <div className="flex items-center gap-2">
                 <button className="p-2 hover:bg-navy-700 rounded-lg text-navy-400 hover:text-white transition-colors">

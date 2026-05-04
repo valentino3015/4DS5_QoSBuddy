@@ -148,7 +148,7 @@ if __name__ == "__main__":
         "rca_event_id": "RCA-0003366",
         "cell_id": "gNB_046_C3",
         "site_id": "gNB_046",
-        "region": "Tunis",
+        "region": "Kairouan",
         "vendor": "Huawei",
         "nr_band": "n1",
         "network_slice": "eMBB",

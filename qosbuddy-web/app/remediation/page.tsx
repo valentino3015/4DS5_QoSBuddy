@@ -13,17 +13,22 @@ import {
   CheckCircle,
   Zap,
   Play,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
-import { mockIncidents } from '@/lib/data'
+import { useWebSocket } from '@/lib/websocket'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { cn, formatDate } from '@/lib/utils'
 
 export default function RemediationPage() {
   const [autoRemediate, setAutoRemediate] = useState(true)
+  const { events, isConnected } = useWebSocket('ws://localhost:8765')
 
-  const remediationQueue = mockIncidents.filter(i => i.remediation).slice(0, 3)
+  // Get events that have remediation data
+  const remediationQueue = events
+    .filter(e => e.remediation && e.remediation.primary_action)
+    .slice(0, 3)
 
   return (
     <div className="flex h-screen bg-navy-900">
@@ -79,49 +84,56 @@ export default function RemediationPage() {
                 <AlertTriangle className="w-5 h-5 text-amber-400" />
                 Remediation Queue
               </h2>
-              {remediationQueue.map((incident) => (
-                <div key={incident.id} className="glass rounded-xl p-5">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium text-white">{incident.id}</span>
-                        <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded text-xs">
-                          {incident.severity}
-                        </span>
-                      </div>
-                      <p className="text-sm text-navy-400">{incident.cellId} • {formatDate(incident.timestamp)}</p>
-                    </div>
-                  </div>
-
-                  <div className="p-3 bg-navy-700/50 rounded-lg mb-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <BrainCircuit className="w-4 h-4 text-accent-purple" />
-                      <span className="text-sm font-medium text-white">AI Recommendation</span>
-                    </div>
-                    <p className="text-sm text-navy-300 mb-2">{incident.remediation?.action}</p>
-                    <div className="flex items-center gap-4 text-xs text-navy-400">
-                      <span>Priority: <span className="text-white">{incident.remediation?.priority}</span></span>
-                      <span>ETA: <span className="text-white">{incident.remediation?.eta}h</span></span>
-                      <span>Effort: <span className="text-white">{incident.remediation?.effort}</span></span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Bot className="w-4 h-4 text-accent-cyan" />
-                      <span className="text-xs text-accent-cyan">AI-Powered</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {incident.remediation?.steps.slice(0, 2).map((step, idx) => (
-                        <span key={idx} className="text-xs text-navy-400 flex items-center gap-1">
-                          {idx > 0 && <ChevronRight className="w-3 h-3" />}
-                          {step}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
+              {remediationQueue.length === 0 ? (
+                <div className="text-center py-8 text-navy-400">
+                  <CheckCircle className="w-8 h-8 mx-auto mb-2 text-emerald-400" />
+                  <p>No remediation actions pending</p>
                 </div>
-              ))}
+              ) : (
+                remediationQueue.map((event) => (
+                  <div key={event.rca_event_id} className="glass rounded-xl p-5">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium text-white">{event.rca_event_id}</span>
+                          <span className="px-2 py-0.5 bg-rose-500/20 text-rose-400 rounded text-xs">
+                            {event.anomaly_severity}
+                          </span>
+                        </div>
+                        <p className="text-sm text-navy-400">{event.cell_id} • {formatDate(event.timestamp)}</p>
+                      </div>
+                    </div>
+
+                    <div className="p-3 bg-navy-700/50 rounded-lg mb-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <BrainCircuit className="w-4 h-4 text-accent-purple" />
+                        <span className="text-sm font-medium text-white">AI Recommendation</span>
+                      </div>
+                      <p className="text-sm text-navy-300 mb-2">{event.remediation?.primary_action?.action}</p>
+                      <div className="flex items-center gap-4 text-xs text-navy-400">
+                        <span>Priority: <span className="text-white">{event.remediation?.primary_action?.priority}</span></span>
+                        <span>ETA: <span className="text-white">{event.remediation?.primary_action?.eta_hours}h</span></span>
+                        <span>Effort: <span className="text-white">{event.remediation?.primary_action?.effort}</span></span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-accent-cyan" />
+                        <span className="text-xs text-accent-cyan">AI-Powered</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {event.remediation?.primary_action?.steps.slice(0, 2).map((step: string, idx: number) => (
+                          <span key={idx} className="text-xs text-navy-400 flex items-center gap-1">
+                            {idx > 0 && <ChevronRight className="w-3 h-3" />}
+                            {step}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
 
             {/* Side Panel */}

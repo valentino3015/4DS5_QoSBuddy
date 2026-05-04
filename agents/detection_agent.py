@@ -1105,6 +1105,9 @@ class StreamInferencer:
         # Neighbour correlation state
         self.ts_anomaly_cells: OrderedDict[str, set] = OrderedDict()
         self.neighbour_map: dict[str, list] = self._load_neighbour_map()
+        
+        # Cell topology cache for correct region lookup
+        self.cell_topology_map: dict[str, dict] = self._load_cell_topology_map()
 
         # Stats
         self.stats = {"processed": 0, "anomalies": 0, "rca_diagnosed": 0, "critical_escalations": 0}
@@ -1180,6 +1183,27 @@ class StreamInferencer:
             return nb_map
         except Exception as e:
             log.warning(f"Could not load neighbour map: {e}")
+            return {}
+
+    def _load_cell_topology_map(self) -> dict[str, dict]:
+        topo_path = DATA_DIR / "cell_topology.csv"
+        if not topo_path.exists():
+            log.warning("cell_topology.csv not found - using KPI row data")
+            return {}
+        try:
+            df = pd.read_csv(topo_path)
+            topo_map = {}
+            for _, r in df.iterrows():
+                cell = str(r.get("cell_id", ""))
+                topo_map[cell] = {
+                    "region": str(r.get("region", "")),
+                    "vendor": str(r.get("vendor", "")),
+                    "site_id": str(r.get("site_id", ""))
+                }
+            log.info(f"  Cell topology map loaded: {len(topo_map)} cells")
+            return topo_map
+        except Exception as e:
+            log.warning(f"Could not load cell topology map: {e}")
             return {}
 
     def _neighbour_vote(self, cell_id: str, timestamp: str, is_anomaly: bool) -> bool:
@@ -1396,6 +1420,13 @@ class StreamInferencer:
                             neighbour_escalated=fusion.get("neighbour_escalated", False),
                         )
 
+                        # Get correct cell info from topology (fixes KPI data inconsistencies)
+                        cell_id = str(row["cell_id"])
+                        topo_info = self.cell_topology_map.get(cell_id, {})
+                        correct_region = topo_info.get("region") or str(row.get("region", "") or "")
+                        correct_vendor = topo_info.get("vendor") or str(row.get("vendor", "") or "")
+                        correct_site = topo_info.get("site_id") or str(row.get("site_id", "") or "")
+
                         # Build combined event
                         event = {
                             "rca_event_id":      f"RCA-{self.stats['anomalies']:07d}",
@@ -1404,10 +1435,10 @@ class StreamInferencer:
                             "processed_at":      datetime.now(timezone.utc).isoformat(),
                             "source_event_id":   f"EVT-{self.stats['processed']:07d}",
                             "timestamp":         str(row["timestamp"]),
-                            "cell_id":           str(row["cell_id"]),
-                            "site_id":           str(row.get("site_id", "") or ""),
-                            "region":            str(row.get("region", "") or ""),
-                            "vendor":            str(row.get("vendor", "") or ""),
+                            "cell_id":           cell_id,
+                            "site_id":           correct_site,
+                            "region":            correct_region,
+                            "vendor":            correct_vendor,
                             "nr_band":           str(row.get("nr_band", "") or ""),
                             "network_slice":     str(row.get("network_slice", "") or ""),
                             "anomaly_severity":  fusion["final_label"],

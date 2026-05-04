@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Users,
   Search,
@@ -10,21 +10,49 @@ import {
   Shield,
   User as UserIcon,
   Check,
-  X
+  X,
+  Loader2
 } from 'lucide-react'
-import { mockUsers } from '@/lib/data'
 import Sidebar from '@/components/Sidebar'
 import Header from '@/components/Header'
 import { cn } from '@/lib/utils'
 
+interface User {
+  id: number
+  name: string
+  email: string
+  role: string
+  notifications_enabled?: boolean
+  created_at?: string
+}
+
 export default function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedRole, setSelectedRole] = useState<string>('all')
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const filteredUsers = mockUsers.filter(user => {
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/users')
+        if (response.ok) {
+          const data = await response.json()
+          setUsers(data)
+        }
+      } catch (error) {
+        console.error('Failed to fetch users:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchUsers()
+  }, [])
+
+  const filteredUsers = users.filter(user => {
     if (selectedRole !== 'all' && user.role !== selectedRole) return false
-    if (searchTerm && !user.name.toLowerCase().includes(searchTerm.toLowerCase()) &&
-        !user.email.toLowerCase().includes(searchTerm.toLowerCase())) return false
+    if (searchTerm && !user.name?.toLowerCase().includes(searchTerm.toLowerCase()) &&
+        !user.email?.toLowerCase().includes(searchTerm.toLowerCase())) return false
     return true
   })
 
@@ -107,41 +135,56 @@ export default function UsersPage() {
                 </tr>
               </thead>
               <tbody className="text-sm">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="border-b border-navy-500/20 hover:bg-navy-700/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center">
-                          <span className="text-white font-medium">{user.name.charAt(0)}</span>
-                        </div>
-                        <div>
-                          <p className="text-white font-medium">{user.name}</p>
-                          <p className="text-navy-400 text-xs">{user.email}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
-                    <td className="px-6 py-4">
-                      <span className="flex items-center gap-1.5 text-emerald-400">
-                        <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        Active
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {user.notifications ? (
-                        <Check className="w-4 h-4 text-emerald-400" />
-                      ) : (
-                        <X className="w-4 h-4 text-navy-400" />
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-navy-400">{user.createdAt}</td>
-                    <td className="px-6 py-4">
-                      <button className="p-2 hover:bg-navy-700 rounded-lg text-navy-400 hover:text-white transition-colors">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
+                {loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center">
+                      <Loader2 className="w-6 h-6 animate-spin mx-auto text-accent-blue" />
+                      <p className="text-navy-400 mt-2">Loading users...</p>
                     </td>
                   </tr>
-                ))}
+                ) : filteredUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-navy-400">
+                      No users found
+                    </td>
+                  </tr>
+                ) : (
+                  filteredUsers.map((user) => (
+                    <tr key={user.id} className="border-b border-navy-500/20 hover:bg-navy-700/30 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-purple flex items-center justify-center">
+                            <span className="text-white font-medium">{user.name?.charAt(0) || '?'}</span>
+                          </div>
+                          <div>
+                            <p className="text-white font-medium">{user.name}</p>
+                            <p className="text-navy-400 text-xs">{user.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">{getRoleBadge(user.role)}</td>
+                      <td className="px-6 py-4">
+                        <span className="flex items-center gap-1.5 text-emerald-400">
+                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                          Active
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {user.notifications_enabled ? (
+                          <Check className="w-4 h-4 text-emerald-400" />
+                        ) : (
+                          <X className="w-4 h-4 text-navy-400" />
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-navy-400">{user.created_at ? new Date(user.created_at).toLocaleDateString() : '-'}</td>
+                      <td className="px-6 py-4">
+                        <button className="p-2 hover:bg-navy-700 rounded-lg text-navy-400 hover:text-white transition-colors">
+                          <MoreVertical className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
