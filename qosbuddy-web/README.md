@@ -191,16 +191,20 @@ npm start
 - Authentication
 ![auth](image.png)
 - Dashboard
+- notification
+![alt text](image-7.png)
 - Map
 ![map](image-1.png)
 ![map2](image-2.png)
 ![alt text](image-5.png)
 - Incidents
+![incidents](image-9.png)
 - Remediation
 - Users
 ![users](image-3.png)
 - Reports
 ![report](image-4.png)
+![pdf](image-8.png)
 ---
 
 **Last Updated**: May 2026
