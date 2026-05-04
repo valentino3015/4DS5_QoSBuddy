@@ -18,6 +18,8 @@ from pathlib import Path
 from datetime import datetime
 from collections import deque
 from copy import deepcopy
+import requests
+import re
 
 ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
@@ -67,62 +69,146 @@ _sh.setFormatter(_fmt); _fh.setFormatter(_fmt)
 logging.basicConfig(level=logging.INFO, handlers=[_sh, _fh])
 log = logging.getLogger("RemediationAgent")
 
+def get_llm_port():
+    app_py_path = ROOT / "LLM" / "App.py"
+    if app_py_path.exists():
+        content = app_py_path.read_text(encoding="utf-8")
+        match = re.search(r'port\s*=\s*(\d+)', content)
+        if match:
+            return int(match.group(1))
+    return 8081
+
+LLM_PORT = get_llm_port()
 
 class RemediationEngine:
-    def _score(self, action, confidence):
-        p = PRIORITY_SCORE.get(action.get("priority", "Low"), 1)
-        e = EFFORT_SCORE.get(action.get("effort", "High"), 1)
-        return round(p * e * (confidence / 100.0), 3)
+    def __init__(self):
+        self.cache_file = OUTPUT_DIR / "llm_cache.jsonl"
+        self.cache = {}
+        if self.cache_file.exists():
+            try:
+                for line in self.cache_file.read_text(encoding='utf-8').splitlines():
+                    line = line.strip()
+                    if not line: continue
+                    entry = json.loads(line)
+                    self.cache[entry["cache_key"]] = entry["data"]
+            except Exception as e:
+                log.warning(f"Could not load LLM cache: {e}")
 
-    def _summary(self, cause, action, cell_id, severity, neighbour_escalated=False):
-        mode    = "can be applied automatically" if action["auto"] else "requires manual intervention by an RF engineer"
-        eta     = str(action["eta_hours"]) + (" hour" if action["eta_hours"] == 1 else " hours")
-        cluster = " This is a CLUSTER EVENT — multiple adjacent cells are affected simultaneously."                   if neighbour_escalated else ""
-        return (
-            f"Cell {cell_id} has a {severity.upper()} severity issue caused by {cause.lower()}.{cluster} "
-            f"The recommended fix is to {action['action'].lower()}, which {mode}. "
-            f"Expected resolution time is {eta}. "
-            f"Once applied, this should {action['impact'].lower()}."
-        )
+    def _append_to_cache(self, cache_key, data):
+        try:
+            self.cache_file.parent.mkdir(parents=True, exist_ok=True)
+            entry = {"cache_key": cache_key, "data": data}
+            with open(self.cache_file, "a", encoding='utf-8') as f:
+                f.write(json.dumps(entry) + "\n")
+        except Exception as e:
+            log.warning(f"Could not append to LLM cache: {e}")
 
     def recommend(self, rca_event):
         rca                 = rca_event.get("rca", {})
-        cause               = rca.get("primary_cause", "")
+        cause               = rca.get("primary_cause", "Unknown")
         confidence          = float(rca.get("confidence_pct", 50.0))
-        severity            = rca_event.get("anomaly_severity", "medium")
+        severity            = rca_event.get("anomaly_severity", "LOW").upper()
         cell_id             = rca_event.get("cell_id", "unknown")
-        ranked              = rca.get("ranked_causes", [])
-        neighbour_escalated = rca_event.get("neighbour_escalated", False) or                               rca.get("neighbour_escalated", False)
+        site_id             = rca_event.get("site_id", "unknown")
+        region              = rca_event.get("region", "unknown")
+        rca_id              = rca_event.get("rca_event_id", "unknown")
+        neighbour_escalated = rca_event.get("neighbour_escalated", False) or rca.get("neighbour_escalated", False)
+        vendor              = rca_event.get("vendor", "unknown")
+        band                = rca_event.get("nr_band", "unknown")
 
-        action = deepcopy(REMEDIATION_KB.get(cause, DEFAULT_REMEDIATION))
-        action["score"]   = self._score(action, confidence)
-        action["summary"] = self._summary(cause, action, cell_id, severity,
-                                          neighbour_escalated)
+        cache_key = f"{cause}::{severity}::{vendor}::{band}"
+        llm_data = None
+        
+        if cache_key in self.cache:
+            log.info(f"LLM Cache Hit for [{cache_key}] - Skipping Mistral AI API.")
+            cached = deepcopy(self.cache[cache_key])
+            llm_data = cached["llm_data"]
+            # Swap dynamic fields
+            sum_text = llm_data.get("summary", "")
+            sum_text = sum_text.replace(cached["orig_cell"], cell_id)
+            sum_text = sum_text.replace(cached["orig_rca_id"], rca_id)
+            sum_text = sum_text.replace(cached["orig_site"], site_id)
+            sum_text = sum_text.replace(cached["orig_region"], region)
+            llm_data["summary"] = sum_text
+            
+            if "incident_info" in llm_data:
+                llm_data["incident_info"]["cell"] = cell_id
+                llm_data["incident_info"]["site"] = site_id
+                llm_data["incident_info"]["region"] = region
+                llm_data["incident_info"]["score"] = rca_event.get("anomaly_score", 0.0)
+        else:
+            try:
+                url = f"http://127.0.0.1:{LLM_PORT}/predict"
+                # Disable LLM timeout so it doesn't drop long generations, max 600s
+                safe_event = clean_nan(rca_event)
+                response = requests.post(url, json=safe_event, timeout=600.0)
+                if response.status_code == 200:
+                    data = response.json()
+                    if "response" in data:
+                        llm_data = data["response"]
+                        cache_entry = {
+                            "orig_cell": cell_id,
+                            "orig_site": site_id,
+                            "orig_region": region,
+                            "orig_rca_id": rca_id,
+                            "llm_data": llm_data
+                        }
+                        self.cache[cache_key] = cache_entry
+                        self._append_to_cache(cache_key, cache_entry)
+                    elif "raw_response" in data:
+                        log.warning("LLM API returned raw_response instead of structured JSON.")
+            except requests.exceptions.RequestException as e:
+                log.warning(f"LLM API unreachable or timed out ({e}). Using fallback.")
+        if llm_data:
+            info = llm_data.get("incident_info", {})
+            steps = llm_data.get("remediation_steps", [])
+            
+            raw_eta = str(info.get("eta", "8"))
+            parsed_eta = re.sub(r'[^0-9]', '', raw_eta)
+            eta_val = int(parsed_eta) if parsed_eta else 8
+            
+            action = {
+                "summary": llm_data.get("summary", "No summary available."),
+                "steps": steps,
+                "action": steps[0] if (steps and isinstance(steps, list)) else "Auto-generated investigation",
+                "auto": str(info.get("mode", "Manual")).lower() == "auto",
+                "eta_hours": eta_val,
+                "priority": info.get("severity", "Medium"),
+                "impact": "Implements exact instructions listed in remediation steps."
+            }
+            alts = []
+            for alt in llm_data.get("alternative_causes", []):
+                raw_conf = str(alt.get("confidence_pct", 0.0)).replace("%", "").strip()
+                try:
+                    conf_val = float(raw_conf) / 100.0
+                except ValueError:
+                    conf_val = 0.0
 
+                alts.append({
+                    "cause": alt.get("cause", "Unknown alternative"),
+                    "probability": conf_val,
+                    "action": "Alternative proposed fix",
+                    "priority": "Low",
+                    "eta_hours": 8
+                })
+        else:
+            action = deepcopy(DEFAULT_REMEDIATION)
+            alts = []
+            
         # For cluster events, prepend a mandatory NOC notification step
         if neighbour_escalated:
             action["steps"] = [
-                "CLUSTER ALERT: Notify NOC immediately — multiple adjacent cells affected",
+                "CLUSTER ALERT: Notify NOC immediately \u2014 multiple adjacent cells affected",
                 "Open a P1 incident ticket and assign to senior RF engineer",
-            ] + action["steps"]
+            ] + action.get("steps", [])
             action["priority"] = "Critical"
-            action["eta_hours"] = max(1, action["eta_hours"] - 1)   # faster SLA
-
-        alternatives = []
-        for alt in ranked[1:4]:
-            alt_cause  = alt.get("cause", "")
-            alt_prob   = float(alt.get("probability", 0)) * 100
-            alt_action = deepcopy(REMEDIATION_KB.get(alt_cause, DEFAULT_REMEDIATION))
-            alt_action["cause"]       = alt_cause
-            alt_action["probability"] = alt.get("probability", 0)
-            alt_action["score"]       = self._score(alt_action, alt_prob)
-            alternatives.append(alt_action)
-
+            action["eta_hours"] = max(1, action.get("eta_hours", 2) - 1)
+            
         return {
             "cause":               cause,
             "confidence_pct":      confidence,
             "primary_action":      action,
-            "alternatives":        alternatives,
+            "alternatives":        alts,
             "similar_resolved":    rca.get("similar_incidents", []),
             "neighbour_escalated": neighbour_escalated,
             "is_cluster_event":    neighbour_escalated,
@@ -351,9 +437,9 @@ class FeedReader:
         broadcast_event(out)
 
         sev   = out["anomaly_severity"].upper()
-        cause = remediation["cause"]
-        act   = remediation["primary_action"]
-        mode  = "[AUTO]" if act["auto"] else "[MANUAL]"
+        cause = remediation.get("cause", "")
+        act   = remediation.get("primary_action", {})
+        mode  = "[AUTO]" if act.get("auto") else "[MANUAL]"
         tag   = "[!!]" if sev in ("HIGH", "CRITICAL") else "[ ~ ]"
         llm_status = llm_remediation.get("source", "unknown")
         log.info(

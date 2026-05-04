@@ -218,6 +218,30 @@ class TemporalCNN(nn.Module):
         x = self.drop(x)
         return torch.sigmoid(self.anomaly_head(x)).squeeze(-1)
 
+class LSTMPredictor(nn.Module):
+    """
+    Predicts future anomaly score from a sliding window of KPI values.
+    Input:  (batch, seq_len, n_features)
+    Output: (batch, 1)  — predicted score [0–10] scaled internally [0,1]
+    """
+    def __init__(self, input_dim: int, hidden_dim: int = 64, num_layers: int = 2):
+        super().__init__()
+        self.lstm = nn.LSTM(
+            input_dim, hidden_dim, num_layers, batch_first=True, 
+            dropout=0.2 if num_layers > 1 else 0
+        )
+        self.head = nn.Sequential(
+            nn.Linear(hidden_dim, 32),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(32, 1),
+            nn.Sigmoid(),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        _, (h, _) = self.lstm(x)
+        return self.head(h[-1])
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # RULE ENGINE
@@ -295,27 +319,32 @@ class BatchTrainer:
         return df
 
     # ── Build Sequences ───────────────────────────────────────────────────────
-    def _build_sequences(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray]:
+    def _build_sequences(self, df: pd.DataFrame) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
         X_scaled = self.scaler.transform(df[KPI_FEATURES_ANOMALY].values)
         y_labels = (df["label"] == "anomaly").astype(np.float32).values
+        # Parse ground-truth prediction target
+        y_scores = (df["anomaly_score_0_10"].values / 10.0).astype(np.float32)
 
-        Xs, ys = [], []
+        Xs, ys_tcnn, ys_lstm = [], [], []
         # Create sequences per cell to avoid cross-cell contamination
         for cell_id, group in df.groupby("cell_id"):
             idx = group.index
             group_X = X_scaled[df.index.isin(idx)]
             group_y = y_labels[df.index.isin(idx)]
+            group_score = y_scores[df.index.isin(idx)]
+            
             for i in range(len(group_X) - self.seq_len):
                 Xs.append(group_X[i : i + self.seq_len])
-                ys.append(1.0 if group_y[i : i + self.seq_len].sum() > 0 else 0.0)
+                ys_tcnn.append(1.0 if group_y[i : i + self.seq_len].sum() > 0 else 0.0)
+                ys_lstm.append(group_score[i + self.seq_len])
 
-        return np.array(Xs, dtype=np.float32), np.array(ys, dtype=np.float32)
+        return np.array(Xs, dtype=np.float32), np.array(ys_tcnn, dtype=np.float32), np.array(ys_lstm, dtype=np.float32)
 
     # ── Train DL Models ───────────────────────────────────────────────────────
     def _train_dl_models(self, df: pd.DataFrame):
         log.info("Scaling features and building sequences ...")
         self.scaler.fit(df[KPI_FEATURES_ANOMALY].values)
-        X_seq, y_seq = self._build_sequences(df)
+        X_seq, y_seq, y_lstm_seq = self._build_sequences(df)
         
         if len(X_seq) == 0:
             log.error("No sequences built. Check chunk sizes/sample block.")
@@ -324,6 +353,7 @@ class BatchTrainer:
         split = int(0.85 * len(X_seq))
         X_tr, X_val = X_seq[:split], X_seq[split:]
         y_tr, y_val = y_seq[:split], y_seq[split:]
+        yl_tr, yl_val = y_lstm_seq[:split], y_lstm_seq[split:]
 
         # Create DataLoaders
         batch_size = 256
@@ -408,9 +438,38 @@ class BatchTrainer:
             if epoch % 5 == 0:
                 log.info(f"  TCNN Epoch {epoch:02d} — weighted bce loss={epoch_loss:.5f}")
 
+        # 3. Train LSTM Predictor (Supervised future regression)
+        log.info("Training LSTM Predictor on ALL sequences ...")
+        lstm_loader = DataLoader(
+            TensorDataset(torch.FloatTensor(X_tr), torch.FloatTensor(yl_tr)),
+            batch_size=batch_size, shuffle=True
+        )
+
+        self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        optim_pred = torch.optim.Adam(self.lstm_pred.parameters(), lr=1e-3)
+        mse_loss = nn.MSELoss()
+
+        self.lstm_pred.train()
+        for epoch in range(1, 16):
+            epoch_loss = 0.0
+            for batch_x, batch_y in lstm_loader:
+                batch_x, batch_y = batch_x.to(self.device), batch_y.to(self.device)
+                optim_pred.zero_grad()
+                preds = self.lstm_pred(batch_x).squeeze(-1)
+                loss = mse_loss(preds, batch_y)
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(self.lstm_pred.parameters(), 1.0)
+                optim_pred.step()
+                epoch_loss += loss.item() * len(batch_x)
+            
+            epoch_loss /= max(len(X_tr), 1)
+            if epoch % 5 == 0:
+                log.info(f"  LSTM Predictor Epoch {epoch:02d} — mse loss={epoch_loss:.5f}")
+
         # Save models
         torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
         torch.save(self.tcnn.state_dict(), MODEL_DIR / "tcnn.pt")
+        torch.save(self.lstm_pred.state_dict(), MODEL_DIR / "lstm_predictor.pt")
         joblib.dump(self.scaler, SCALER_PATH)
         log.info("  DL Models saved [OK]")
 
@@ -716,8 +775,9 @@ class StreamInferencer:
         log.info("Loading anomaly detection models ...")
         ae_path = MODEL_DIR / "lstm_ae.pt"
         tcnn_path = MODEL_DIR / "tcnn.pt"
+        lstm_path = MODEL_DIR / "lstm_predictor.pt"
         
-        if not SCALER_PATH.exists() or not ae_path.exists() or not tcnn_path.exists():
+        if not SCALER_PATH.exists() or not ae_path.exists() or not tcnn_path.exists() or not lstm_path.exists():
             raise FileNotFoundError("Anomaly models not found. Run with --mode train first.")
 
         self.scaler = joblib.load(SCALER_PATH)
@@ -729,6 +789,10 @@ class StreamInferencer:
         self.tcnn = TemporalCNN(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
         self.tcnn.load_state_dict(torch.load(tcnn_path, map_location=self.device))
         self.tcnn.eval()
+
+        self.lstm_pred = LSTMPredictor(input_dim=len(KPI_FEATURES_ANOMALY)).to(self.device)
+        self.lstm_pred.load_state_dict(torch.load(lstm_path, map_location=self.device))
+        self.lstm_pred.eval()
 
         log.info("  DL Anomaly models loaded [OK]")
 
@@ -789,23 +853,33 @@ class StreamInferencer:
         return None
 
     def _fuse_signals(self, rule: dict, ae_score: float | None,
-                      tcnn_score: float | None, neighbour_escalate: bool = False) -> dict:
+                      tcnn_score: float | None, lstm_pred_score: float | None, 
+                      neighbour_escalate: bool = False) -> dict:
         votes = 0
         if rule["rule_triggered"]: votes += 1
         if ae_score is not None and ae_score > 5.0: votes += 1
         if tcnn_score is not None and tcnn_score > 5.0: votes += 1
+        if lstm_pred_score is not None and lstm_pred_score > 5.0: votes += 1
 
         combined_score = round(
             (rule["rule_score"] * 0.35) +
-            ((ae_score or 0)    * 0.25) +
-            ((tcnn_score or 0)  * 0.40), 3
+            ((ae_score or 0)    * 0.20) +
+            ((tcnn_score or 0)  * 0.30) +
+            ((lstm_pred_score or 0) * 0.15), 3
         )
 
-        if votes == 0: final_label = "normal"
-        elif votes == 1: final_label = "low"
-        elif votes == 2: final_label = "medium"
-        else: final_label = "high"
+        if votes == 0:
+            final_label = "normal"
+        elif votes == 1:
+            final_label = "low"
+        elif votes == 2:
+            final_label = "medium"
+        elif votes == 3:
+            final_label = "high"
+        else: # votes >= 4
+            final_label = "critical"
 
+        # Escalation bonus
         if final_label == "high" and neighbour_escalate:
             final_label = "critical"
 
@@ -882,16 +956,19 @@ class StreamInferencer:
                 # ── Batched DL Inference ──
                 ae_scores = [None] * len(records)
                 tcnn_scores = [None] * len(records)
+                lstm_scores = [None] * len(records)
                 
                 if valid_sequences:
                     batch_tensor = torch.tensor(np.array(valid_sequences), dtype=torch.float32).to(self.device)
                     with torch.no_grad():
                         ae_batch = self.lstm_ae.anomaly_score(batch_tensor) * 10.0
                         tcnn_batch = self.tcnn(batch_tensor).squeeze(-1).cpu().numpy() * 10.0
+                        lstm_batch = self.lstm_pred(batch_tensor).squeeze(-1).cpu().numpy() * 10.0
                         
                     for j, original_idx in enumerate(valid_indices):
                         ae_scores[original_idx] = round(float(ae_batch[j]), 3)
                         tcnn_scores[original_idx] = round(float(tcnn_batch[j]), 3)
+                        lstm_scores[original_idx] = round(float(lstm_batch[j]), 3)
 
                 # ── Fusion & Emission Spooling ──
                 json_buffer = []
@@ -900,18 +977,20 @@ class StreamInferencer:
                     rule_result = rule_engine(row)
                     ae_score = ae_scores[i]
                     tcnn_score = tcnn_scores[i]
+                    lstm_score = lstm_scores[i]
 
                     pre_anomaly = (
                         rule_result["rule_triggered"] or 
                         (ae_score is not None and ae_score > 5.0) or
-                        (tcnn_score is not None and tcnn_score > 5.0)
+                        (tcnn_score is not None and tcnn_score > 5.0) or
+                        (lstm_score is not None and lstm_score > 5.0)
                     )
                     neighbour_escalate = self._neighbour_vote(
                         str(row["cell_id"]), str(row["timestamp"]), pre_anomaly
                     )
 
                     fusion = self._fuse_signals(
-                        rule_result, ae_score, tcnn_score, neighbour_escalate
+                        rule_result, ae_score, tcnn_score, lstm_score, neighbour_escalate
                     )
 
                     if fusion["is_anomaly"]:
@@ -958,6 +1037,7 @@ class StreamInferencer:
                             "dl_anomaly_models": {
                                 "lstm_ae_score_0_10": ae_score,
                                 "tcnn_prob_0_10":     tcnn_score,
+                                "lstm_pred_0_10":     lstm_score,
                                 "ready":              ae_score is not None,
                             },
                             "fusion":            fusion,
