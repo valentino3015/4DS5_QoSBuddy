@@ -32,7 +32,7 @@ services:
   detection-agent:
     image: qosbuddy-base
     container_name: qosbuddy-detection
-    command: ["python", "agents/detection_agent.py", "--mode", "stream", "--chunk-size", "10"]
+    command: ["python", "agents/detection_agent.py", "--mode", "stream", "--chunk-size", "10", "--stream-delay", "2.0"]
     depends_on:
       - llm-service
     volumes:
@@ -46,7 +46,7 @@ services:
   remediation-agent:
     image: qosbuddy-base
     container_name: qosbuddy-remediation
-    command: ["python", "agents/remediation_agent.py", "--tail-interval", "0.25"]
+    command: ["python", "agents/remediation_agent.py", "--tail-interval", "0.4"]
     ports:
       - "8080:8080"
       - "8765:8765"
@@ -69,7 +69,7 @@ services:
     volumes:
       - ./mlruns:/app/mlruns
       - ./mlflow_tracking.db:/app/mlflow_tracking.db
-    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:///mlflow_tracking.db"]
+    command: ["mlflow", "ui", "--host", "0.0.0.0", "--port", "5000", "--backend-store-uri", "sqlite:///mlflow_tracking.db", "--allowed-hosts", "*", "--cors-allowed-origins", "*"]
 
 volumes:
   hf_cache:
