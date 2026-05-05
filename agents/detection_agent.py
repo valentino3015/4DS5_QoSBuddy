@@ -39,7 +39,7 @@ import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, roc_auc_score
 from sklearn.neighbors import NearestNeighbors
 import joblib
 import xgboost as xgb
@@ -511,6 +511,130 @@ class BatchTrainer:
         )
 
     # ── Train DL Models ───────────────────────────────────────────────────────
+    def _sync_device(self):
+        if self.device.type == "cuda":
+            torch.cuda.synchronize(self.device)
+
+    def _benchmark_autoencoder(self, model: nn.Module, sample_tensor: torch.Tensor, repeats: int = 20) -> float:
+        if sample_tensor.numel() == 0:
+            return float("nan")
+
+        model.eval()
+        with torch.no_grad():
+            _ = model.anomaly_score(sample_tensor[:1])
+            self._sync_device()
+            start = time.perf_counter()
+            for _ in range(repeats):
+                _ = model.anomaly_score(sample_tensor)
+            self._sync_device()
+            elapsed = time.perf_counter() - start
+        return (elapsed / repeats) * 1000.0
+
+    def _evaluate_autoencoder_comparison(
+        self,
+        model: nn.Module,
+        model_name: str,
+        X_val: np.ndarray,
+        y_val: np.ndarray,
+        final_val_loss: float,
+        batch_size: int = 256,
+    ) -> dict:
+        if len(X_val) == 0:
+            return {
+                "model": model_name,
+                "final_val_loss": float("nan"),
+                "mean_score_normal": float("nan"),
+                "mean_score_anomaly": float("nan"),
+                "score_gap": float("nan"),
+                "roc_auc": float("nan"),
+                "inference_ms_per_batch": float("nan"),
+            }
+
+        score_batches = []
+        model.eval()
+        with torch.no_grad():
+            for i in range(0, len(X_val), batch_size):
+                bx = torch.FloatTensor(X_val[i : i + batch_size]).to(self.device)
+                score_batches.append(model.anomaly_score(bx))
+
+        scores = np.concatenate(score_batches) if score_batches else np.array([], dtype=np.float32)
+        normal_scores = scores[y_val == 0]
+        anomaly_scores = scores[y_val == 1]
+
+        roc_auc = float("nan")
+        if len(np.unique(y_val)) > 1 and len(scores) == len(y_val):
+            roc_auc = float(roc_auc_score(y_val, scores))
+
+        sample_size = min(batch_size, len(X_val))
+        sample_tensor = torch.FloatTensor(X_val[:sample_size]).to(self.device)
+        inference_ms = self._benchmark_autoencoder(model, sample_tensor)
+
+        return {
+            "model": model_name,
+            "final_val_loss": float(final_val_loss),
+            "mean_score_normal": float(normal_scores.mean()) if len(normal_scores) else float("nan"),
+            "mean_score_anomaly": float(anomaly_scores.mean()) if len(anomaly_scores) else float("nan"),
+            "score_gap": float(anomaly_scores.mean() - normal_scores.mean()) if len(normal_scores) and len(anomaly_scores) else float("nan"),
+            "roc_auc": roc_auc,
+            "inference_ms_per_batch": float(inference_ms),
+        }
+
+    def _report_autoencoder_comparison(self, gru_metrics: dict, lstm_metrics: dict):
+        comparison_rows = [gru_metrics, lstm_metrics]
+        log.info("-" * 60)
+        log.info("AUTOENCODER COMPARISON (GRU-AE vs LSTM-AE)")
+        log.info("-" * 60)
+        log.info(
+            "  %-12s | %-12s | %-13s | %-14s | %-10s | %-12s",
+            "Model",
+            "Val Loss",
+            "Score Normal",
+            "Score Anomaly",
+            "ROC-AUC",
+            "Infer ms",
+        )
+        for row in comparison_rows:
+            log.info(
+                "  %-12s | %-12.5f | %-13.4f | %-14.4f | %-10.4f | %-12.3f",
+                row["model"],
+                row["final_val_loss"],
+                row["mean_score_normal"],
+                row["mean_score_anomaly"],
+                row["roc_auc"],
+                row["inference_ms_per_batch"],
+            )
+
+        winner = max(
+            comparison_rows,
+            key=lambda row: (
+                -1e9 if np.isnan(row["roc_auc"]) else row["roc_auc"],
+                -row["final_val_loss"],
+                -row["inference_ms_per_batch"],
+            ),
+        )
+        log.info("-" * 60)
+        log.info(
+            "Recommended autoencoder: %s | reason: best ROC-AUC, then lower validation loss, then faster inference.",
+            winner["model"],
+        )
+        log.info(
+            "Interpretation: lower val_loss is better, higher score gap is better, higher ROC-AUC is better, lower inference time is better."
+        )
+        log.info("-" * 60)
+
+        comparison_path = OUTPUT_DIR / "autoencoder_comparison.json"
+        with open(comparison_path, "w", encoding="utf-8") as f:
+            json.dump(
+                {
+                    "gru_ae": gru_metrics,
+                    "lstm_ae": lstm_metrics,
+                    "recommended_model": winner["model"],
+                },
+                f,
+                indent=2,
+            )
+        log.info(f"  Comparison report saved to {comparison_path}")
+
     def _train_dl_models(self, df: pd.DataFrame):
         log.info("Scaling features and building sequences ...")
         self.scaler.fit(df[KPI_FEATURES_ANOMALY].values)
@@ -662,6 +786,14 @@ class BatchTrainer:
 
         torch.save(self.lstm_ae.state_dict(), MODEL_DIR / "lstm_ae.pt")
         log.info("  ✓ LSTM-AE checkpointed")
+
+        gru_cmp = self._evaluate_autoencoder_comparison(
+            self.gru_ae, "GRU-AE", X_val, y_val, val_metrics[max(val_metrics)]
+        )
+        lstm_cmp = self._evaluate_autoencoder_comparison(
+            self.lstm_ae, "LSTM-AE", X_val, y_val, lstm_ae_val_metrics[max(lstm_ae_val_metrics)]
+        )
+        self._report_autoencoder_comparison(gru_cmp, lstm_cmp)
 
         # 2. Train TCNN on all sequences (Supervised)
         log.info("Training Temporal CNN on ALL sequences ...")
